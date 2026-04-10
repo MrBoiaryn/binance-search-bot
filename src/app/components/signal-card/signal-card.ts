@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { TradeSignal } from '../../models/models';
 import { DecimalPipe } from '@angular/common';
+import { generateBinanceLink } from '../utils/link-helper';
 
 @Component({
   selector: 'app-signal-card',
@@ -12,9 +13,14 @@ import { DecimalPipe } from '@angular/common';
 })
 export class SignalCard {
   @Input() sig!: TradeSignal;
+  @Input() marketType: 'spot' | 'futures' = 'futures';
   @Output() onOpenTrade = new EventEmitter<TradeSignal>();
 
-  getBinanceLink(symbol: string): string {
-    return `https://www.binance.com/uk-UA/futures/${symbol.toUpperCase()}`;
+  getBinanceLink(): string {
+    return generateBinanceLink(
+      this.sig.symbol,
+      this.marketType,
+      this.sig.quoteAsset
+    );
   }
 }

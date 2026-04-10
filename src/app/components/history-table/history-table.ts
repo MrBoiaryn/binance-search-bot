@@ -1,6 +1,7 @@
-import { Component, Input } from '@angular/core';
-import { HistoricalLog } from '../../models/models';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { HistoricalLog, TradeSignal } from '../../models/models';
 import { DecimalPipe } from '@angular/common';
+import { generateBinanceLink } from '../utils/link-helper';
 
 @Component({
   selector: 'app-history-table',
@@ -12,9 +13,13 @@ import { DecimalPipe } from '@angular/common';
 })
 export class HistoryTable {
   @Input() history: HistoricalLog[] = [];
+  @Input() marketType: 'spot' | 'futures' = 'futures';
 
-
-  getBinanceLink(symbol: string): string {
-    return `https://www.binance.com/uk-UA/futures/${symbol.toUpperCase()}`;
+  getBinanceLink(log: HistoricalLog): string {
+    return generateBinanceLink(
+      log.symbol,
+      this.marketType,
+      log.quoteAsset
+    );
   }
 }

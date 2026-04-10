@@ -27,6 +27,7 @@ export interface TradeSignal {
   timestamp: number;
   rr: number;
   isStale?: boolean; // Для "режиму привидів"
+  quoteAsset: string; // ДОДАТИ
 }
 
 export interface HistoricalLog {
@@ -37,6 +38,7 @@ export interface HistoricalLog {
   pattern: string;
   price: number;
   liq: number;
+  quoteAsset: string; // ДОДАТИ
 }
 
 export interface OpenPosition {

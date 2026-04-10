@@ -20,6 +20,7 @@
     @for (sig of signalsList; track sig.symbol) {
       <app-signal-card
         [sig]="sig"
+        [marketType]="settings.marketType"
         (onOpenTrade)="openTrade($event)">
       </app-signal-card>
     } @empty {
@@ -30,5 +31,8 @@
     }
   </div>
 
-  <app-history-table [history]="lastSignalsHistory"></app-history-table>
+  <app-history-table
+    [history]="lastSignalsHistory"
+    [marketType]="settings.marketType">
+  </app-history-table>
 </div>

@@ -29,6 +29,7 @@ export class App implements OnInit {
   liquidationsCurrentMin: Map<string, number> = new Map();
   private removalTimeouts: Map<string, any> = new Map();
   private socketSub: any;
+  private symbolQuotes: Map<string, string> = new Map(); // ДОДАЙ ЦЕЙ РЯДОК
 
   // ЄДИНИЙ ОБ'ЄКТ НАЛАШТУВАНЬ
   settings: ScannerSettings = {
@@ -49,6 +50,7 @@ export class App implements OnInit {
   ) {}
 
   ngOnInit() {
+    console.log(`🚀 [SYSTEM] Sniper Scanner Started (${this.settings.timeframe} ${this.settings.marketType})...`);
     this.lastSignalsHistory = this.storage.loadHistory();
     this.openPositions = this.storage.loadOpenPositions();
     this.startScanner();
@@ -70,28 +72,69 @@ export class App implements OnInit {
   }
 
   startScanner() {
-    this.socketService.getTopPairs(this.settings.marketType).subscribe(pairs => {
-      const historyRequests = pairs.map(p =>
-        this.socketService.getKlinesHistory(p, this.settings.timeframe, this.settings.marketType).pipe(
-          map(data => ({ symbol: p.toUpperCase(), data })),
-          catchError(() => of(null))
-        )
-      );
+    console.log(`📡 [SYSTEM] Initializing scanner for ${this.settings.marketType}...`);
 
-      forkJoin(historyRequests).subscribe(results => {
-        results.filter(r => r !== null).forEach((res: any) => {
-          const formatted = res.data.map((k: any) => ({
-            close: parseFloat(k[4]), high: parseFloat(k[2]), low: parseFloat(k[3]), open: parseFloat(k[1]), volume: parseFloat(k[5])
-          }));
-          this.klineHistory.set(res.symbol, formatted);
-          const avg = formatted.reduce((a: any, b: any) => a + b.volume, 0) / formatted.length;
-          this.volumeAverages.set(res.symbol, avg);
+    // 1. Отримуємо правила ринку (Exchange Info), щоб знати квоти (USDT, BTC, etc.)
+    this.socketService.getExchangeInfo(this.settings.marketType).subscribe({
+      next: (info) => {
+        // Заповнюємо словник квот: "BTCUSDT" -> "USDT"
+        info.symbols.forEach((s: any) => {
+          this.symbolQuotes.set(s.symbol.toUpperCase(), s.quoteAsset.toUpperCase());
         });
 
-        this.socketSub = this.socketService.connectKlines(pairs, this.settings.timeframe, this.settings.marketType).subscribe(data => {
-          this.analyzeData(data);
+        // 2. Отримуємо список активних пар (Топ за об'ємом/волатильністю)
+        this.socketService.getTopPairs(this.settings.marketType).subscribe(pairs => {
+          console.log(`✅ Loaded ${pairs.length} pairs. Fetching history...`);
+
+          // 3. Готуємо запити на історію (250 свічок) для кожної пари
+          const historyRequests = pairs.map(p =>
+            this.socketService.getKlinesHistory(p, this.settings.timeframe, this.settings.marketType).pipe(
+              map(data => ({ symbol: p.toUpperCase(), data })),
+              catchError(err => {
+                console.error(`❌ Error fetching history for ${p}:`, err);
+                return of(null);
+              })
+            )
+          );
+
+          // 4. Чекаємо завантаження всієї історії
+          forkJoin(historyRequests).subscribe(results => {
+            results.filter(r => r !== null).forEach((res: any) => {
+              // Форматуємо масив свічок для технічного аналізу
+              const formatted = res.data.map((k: any) => ({
+                close: parseFloat(k[4]),
+                high: parseFloat(k[2]),
+                low: parseFloat(k[3]),
+                open: parseFloat(k[1]),
+                volume: parseFloat(k[5])
+              }));
+
+              // Зберігаємо історію та рахуємо початковий середній об'єм
+              this.klineHistory.set(res.symbol, formatted);
+              const avg = formatted.reduce((acc: number, candle: any) => acc + candle.volume, 0) / formatted.length;
+              this.volumeAverages.set(res.symbol, avg);
+            });
+
+            console.log("🚀 History loaded. Connecting to WebSocket...");
+
+            // 5. Підключаємо Live-потік даних через WebSocket
+            if (this.socketSub) this.socketSub.unsubscribe(); // Про всяк випадок чистимо старе
+
+            this.socketSub = this.socketService.connectKlines(pairs, this.settings.timeframe, this.settings.marketType)
+              .subscribe({
+                next: (data) => {
+                  this.analyzeData(data); // Твій основний метод аналізу
+                },
+                error: (err) => {
+                  console.error("🚨 WebSocket Connection Error:", err);
+                }
+              });
+          });
         });
-      });
+      },
+      error: (err) => {
+        console.error("🚨 Could not load Exchange Info:", err);
+      }
     });
   }
 
@@ -256,14 +299,24 @@ export class App implements OnInit {
   }
 
   private createSignal(kline: any, type: 'LONG' | 'SHORT', pattern: string, vol: number, liq: number, history: any[]): TradeSignal {
+    const symbol = kline.symbol.toUpperCase(); // СТВОРЮЄМО ЗМІННУ ТУТ
     const sl = type === 'LONG' ? kline.low * 0.999 : kline.high * 1.001;
     const tp = type === 'LONG' ? Math.max(...history.slice(-20).map(k => k.high)) : Math.min(...history.slice(-20).map(k => k.low));
     const risk = Math.abs(kline.close - sl);
     const profit = Math.abs(tp - kline.close);
 
     return {
-      symbol: kline.symbol, type, pattern, currentPrice: kline.close, stopLoss: sl, takeProfit: tp,
-      profitPercent: (profit / kline.close) * 100, volumeMultiplier: vol, liqAmount: liq, timestamp: Date.now(),
+      symbol: symbol, // тепер воно бачить цю змінну
+      type,
+      pattern,
+      currentPrice: kline.close,
+      stopLoss: sl,
+      takeProfit: tp,
+      quoteAsset: this.symbolQuotes.get(symbol) || 'USDT', // тепер symbolQuotes існує
+      profitPercent: (profit / kline.close) * 100,
+      volumeMultiplier: vol,
+      liqAmount: liq,
+      timestamp: Date.now(),
       rr: profit / (risk || 0.000001)
     };
   }
@@ -303,10 +356,13 @@ export class App implements OnInit {
   }
 
   private addToHistory(symbol: string, type: string, price: number, liq: number, pattern: string) {
+    const quote = this.symbolQuotes.get(symbol) || 'USDT'; // Беремо квоту зі словника
+
     this.lastSignalsHistory.unshift({
-      id: Date.now() + Math.random(), // Гарантована унікальність навіть при миттєвих записах
+      id: Date.now() + Math.random(),
       time: new Date().toLocaleTimeString(),
       symbol,
+      quoteAsset: quote, // ДОДАТИ СЮДИ
       type,
       pattern,
       price,
@@ -314,10 +370,9 @@ export class App implements OnInit {
     });
 
     if (this.lastSignalsHistory.length > 20) this.lastSignalsHistory.pop();
-    this.storage.saveHistory(this.lastSignalsHistory); // Не забувай зберігати
+    this.storage.saveHistory(this.lastSignalsHistory);
   }
 
-  getBinanceLink(symbol: string): string { return `https://www.binance.com/uk-UA/futures/${symbol.toUpperCase()}`; }
   private updateUI() { this.signalsList = Array.from(this.activeSignals.values()).sort((a, b) => b.liqAmount - a.liqAmount); this.cdr.detectChanges(); }
   private initHeartbeat() { setInterval(() => { this.processedTicks = 0; }, 60000); }
 }

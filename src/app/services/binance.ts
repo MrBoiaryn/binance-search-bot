@@ -116,4 +116,13 @@ export class BinanceSocketService {
     console.log("🔄 Спроба автоматичного відновлення зв'язку...");
     this.connectKlines(pairs, timeframe, market);
   }
+
+  getExchangeInfo(marketType: 'spot' | 'futures'): Observable<any> {
+    // Використовуємо твій проксі-шлях, інакше браузер видасть помилку і квоти не завантажаться!
+    const apiBase = marketType === 'futures'
+      ? '/api/binance/futures/fapi/v1'
+      : '/api/binance/spot/api/v3';
+
+    return this.http.get(`${apiBase}/exchangeInfo`);
+  }
 }

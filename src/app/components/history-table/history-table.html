@@ -15,7 +15,7 @@
     </tr>
     </thead>
     <tbody>
-      @for (log of history; track log.time + log.symbol) {
+      @for (log of history; track log.id) {
         <tr>
           <td class="time-cell">{{ log.time }}</td>
           <td>

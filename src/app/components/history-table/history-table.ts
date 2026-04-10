@@ -13,6 +13,7 @@ import { DecimalPipe } from '@angular/common';
 export class HistoryTable {
   @Input() history: HistoricalLog[] = [];
 
+
   getBinanceLink(symbol: string): string {
     return `https://www.binance.com/uk-UA/futures/${symbol.toUpperCase()}`;
   }

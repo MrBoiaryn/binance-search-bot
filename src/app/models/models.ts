@@ -30,6 +30,7 @@ export interface TradeSignal {
 }
 
 export interface HistoricalLog {
+  id: number;      // ДОДАНО: унікальний ID (Date.now())
   time: string;
   symbol: string;
   type: string;
@@ -58,4 +59,11 @@ export interface ScannerSettings {
   minRR: number;         // Мінімальний Risk/Reward
   soundEnabled: boolean; // Звукові сповіщення
   holdStale: boolean;    // Чи показувати "привидів" 15 сек
+}
+
+export interface PatternContext {
+  kline: any;          // Поточна свічка (live)
+  lastCandle: any;     // Попередня закрита свічка
+  history: any[];      // Історія свічок
+  avgBody: number;     // Середнє тіло за останні N свічок
 }

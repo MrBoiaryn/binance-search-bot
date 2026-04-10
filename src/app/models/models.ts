@@ -1,3 +1,5 @@
+// src/app/models/models.ts
+
 export interface KlineData {
   type: 'kline' | 'liquidation';
   symbol: string;
@@ -8,29 +10,30 @@ export interface KlineData {
   close?: number;
   volume?: number;
   startTime?: number;
-  side?: string; // для ліквідацій
-  amount?: number; // для ліквідацій
+  side?: string;
+  amount?: number;
 }
 
 export interface TradeSignal {
   symbol: string;
   type: 'LONG' | 'SHORT';
-  pattern: string;      // Назва патерна: "Hammer", "Engulfing", "Momentum"
+  pattern: string;
   currentPrice: number;
   stopLoss: number;
   takeProfit: number;
   profitPercent: number;
   volumeMultiplier: number;
-  liqAmount: number;    // Сума ліквідацій за хвилину
+  liqAmount: number;
   timestamp: number;
-  rr: number;           // Співвідношення Ризик/Прибуток
+  rr: number;
+  isStale?: boolean; // Для "режиму привидів"
 }
 
 export interface HistoricalLog {
   time: string;
   symbol: string;
   type: string;
-  pattern: string; // ДОДАНО
+  pattern: string;
   price: number;
   liq: number;
 }
@@ -43,4 +46,16 @@ export interface OpenPosition {
   takeProfit: number;
   pattern: string;
   openedAt: number;
+}
+
+// НОВИЙ ІНТЕРФЕЙС НАЛАШТУВАНЬ
+export interface ScannerSettings {
+  marketType: 'spot' | 'futures';
+  timeframe: string;
+  volumeThreshold: number;
+  swingPeriod: number;
+  minLiquidation: number;
+  minRR: number;         // Мінімальний Risk/Reward
+  soundEnabled: boolean; // Звукові сповіщення
+  holdStale: boolean;    // Чи показувати "привидів" 15 сек
 }

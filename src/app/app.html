@@ -1,49 +1,17 @@
-<div style="padding: 20px; font-family: sans-serif; background: #0b0e11; color: #eaecef; min-height: 100vh;">
+<div style="font-family: sans-serif; background: #0b0e11; color: #eaecef; min-height: 100vh;">
 
-  <div style="background: #1e2329; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
-
-    <div>
-      <label style="display: block; font-size: 10px; color: #848e9c; margin-bottom: 5px; text-transform: uppercase;">Ринок</label>
-      <select [(ngModel)]="marketType" style="background: #2b2f36; color: white; border: 1px solid #444; padding: 8px; border-radius: 4px; outline: none;">
-        <option value="futures">Futures (USD-M)</option>
-        <option value="spot">Spot Market</option>
-      </select>
-    </div>
-
-    <div>
-      <label style="display: block; font-size: 10px; color: #848e9c; margin-bottom: 5px; text-transform: uppercase;">Таймфрейм</label>
-      <select [(ngModel)]="timeframe" style="background: #2b2f36; color: white; border: 1px solid #444; padding: 8px; border-radius: 4px; outline: none;">
-        <option value="1m">1m</option>
-        <option value="5m">5m</option>
-        <option value="15m">15m</option>
-        <option value="1h">1h</option>
-      </select>
-    </div>
-
-    <div>
-      <label style="display: block; font-size: 10px; color: #848e9c; margin-bottom: 5px; text-transform: uppercase;">Чутливість (x Vol)</label>
-      <input type="number" [(ngModel)]="VOLUME_THRESHOLD" style="width: 70px; background: #2b2f36; color: white; border: 1px solid #444; padding: 8px; border-radius: 4px;">
-    </div>
-
-    <button (click)="restartScanner()" style="background: #f3ba2f; color: #0b0e11; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-      Застосувати зміни
-    </button>
-
-    <div style="margin-left: auto; text-align: right;">
-      <div style="font-size: 12px; color: #848e9c;">Статус: <span style="color: #0ecb81;">Connected</span></div>
-      <div style="font-size: 10px; color: #555;">{{ marketType }} | {{ timeframe }}</div>
-    </div>
-  </div>
+  <app-header
+    [settings]="settings"
+    (settingsChanged)="onSettingsUpdated($event)">
+  </app-header>
 
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <h2 style="color: #f3ba2f; margin: 0; display: flex; align-items: center; gap: 10px;">
-      <span>🎯 Sniper Futures Scanner</span>
-      <span style="background: #2b2f36; color: #848e9c; font-size: 12px; padding: 4px 8px; border-radius: 4px; font-weight: normal;">1m TF</span>
+      <div style="background: #1e2329; padding: 10px 15px; border-radius: 8px; font-size: 14px; border: 1px solid #333; display: flex; align-items: center; gap: 10px;">
+        <span style="width: 8px; height: 8px; background: #0ecb81; border-radius: 50%; box-shadow: 0 0 10px #0ecb81;"></span>
+        📡 Активні сигнали: <span style="color: #f3ba2f; font-weight: bold; font-size: 16px;">{{ signalsList.length }}</span>
+      </div>
     </h2>
-    <div style="background: #1e2329; padding: 10px 15px; border-radius: 8px; font-size: 14px; border: 1px solid #333; display: flex; align-items: center; gap: 10px;">
-      <span style="width: 8px; height: 8px; background: #0ecb81; border-radius: 50%; box-shadow: 0 0 10px #0ecb81;"></span>
-      📡 Активні сигнали: <span style="color: #f3ba2f; font-weight: bold; font-size: 16px;">{{ signalsList.length }}</span>
-    </div>
   </div>
 
   @if (openPositions.length > 0) {
@@ -84,7 +52,8 @@
   <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px;">
     @for (sig of signalsList; track sig.symbol) {
       <div style="background: #1e2329; border-radius: 12px; padding: 16px; border-top: 4px solid; transition: transform 0.2s;"
-           [style.borderTopColor]="sig.type === 'LONG' ? '#0ecb81' : '#f6465d'">
+           [style.borderTopColor]="sig.type === 'LONG' ? '#0ecb81' : '#f6465d'"
+           [style.opacity]="sig.isStale ? 0.5 : 1">
 
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
           <div>

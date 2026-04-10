@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, isDevMode } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, Subject } from 'rxjs';
 import { KlineData } from '../models/models';
@@ -12,9 +12,8 @@ export class BinanceSocketService {
   constructor(private http: HttpClient) {}
 
   getTopPairs(market: 'spot' | 'futures'): Observable<string[]> {
-    const endpoint = market === 'futures'
-      ? '/api/binance/futures/fapi/v1/ticker/24hr'
-      : '/api/binance/spot/api/v3/ticker/24hr';
+    const baseUrl = this.getBaseUrl(market);
+    const endpoint = `${baseUrl}/ticker/24hr`;
 
     return new Observable(observer => {
       this.http.get<any[]>(endpoint).subscribe(data => {
@@ -28,7 +27,6 @@ export class BinanceSocketService {
       });
     });
   }
-
   connectKlines(pairs: string[], timeframe: string, market: 'spot' | 'futures'): Observable<KlineData> {
     // 1. Очищуємо старий сокет правильно
     this.closeExistingSocket();
@@ -103,8 +101,8 @@ export class BinanceSocketService {
   }
 
   getKlinesHistory(symbol: string, interval: string, market: 'spot' | 'futures'): Observable<any[]> {
-    const apiBase = market === 'futures' ? '/api/binance/futures/fapi/v1' : '/api/binance/spot/api/v3';
-    return this.http.get<any[]>(`${apiBase}/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=250`);
+    const baseUrl = this.getBaseUrl(market);
+    return this.http.get<any[]>(`${baseUrl}/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=250`);
   }
 
   private reconnect(market: 'spot' | 'futures', timeframe: string, pairs: string[]) {
@@ -118,11 +116,21 @@ export class BinanceSocketService {
   }
 
   getExchangeInfo(marketType: 'spot' | 'futures'): Observable<any> {
-    // Використовуємо твій проксі-шлях, інакше браузер видасть помилку і квоти не завантажаться!
-    const apiBase = marketType === 'futures'
-      ? '/api/binance/futures/fapi/v1'
-      : '/api/binance/spot/api/v3';
+    const baseUrl = this.getBaseUrl(marketType);
+    return this.http.get(`${baseUrl}/exchangeInfo`);
+  }
 
-    return this.http.get(`${apiBase}/exchangeInfo`);
+  private getBaseUrl(market: 'spot' | 'futures'): string {
+    if (isDevMode()) {
+      // Твій локальний проксі
+      return market === 'futures'
+        ? '/api/binance/futures/fapi/v1'
+        : '/api/binance/spot/api/v3';
+    } else {
+      // Прямі посилання для GitHub Pages / Vercel
+      return market === 'futures'
+        ? 'https://fapi.binance.com/fapi/v1'
+        : 'https://api.binance.com/api/v3';
+    }
   }
 }

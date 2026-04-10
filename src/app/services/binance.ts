@@ -1,20 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, Subject } from 'rxjs';
-
-export interface KlineData {
-  type: 'kline' | 'liquidation';
-  symbol: string;
-  isClosed?: boolean;
-  open?: number;
-  high?: number;
-  low?: number;
-  close?: number;
-  volume?: number;
-  startTime?: number;
-  side?: string; // для ліквідацій
-  amount?: number; // для ліквідацій
-}
+import { KlineData } from '../models/models';
 
 @Injectable({ providedIn: 'root' })
 export class BinanceSocketService {
@@ -34,7 +21,7 @@ export class BinanceSocketService {
         const topPairs = data
           .filter(t => t.symbol.endsWith('USDT'))
           .sort((a, b) => parseFloat(b.quoteVolume || b.v) - parseFloat(a.quoteVolume || a.v))
-          .slice(0, 50)
+          .slice(0, 100)
           .map(t => t.symbol.toLowerCase());
         observer.next(topPairs);
         observer.complete();

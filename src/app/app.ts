@@ -1,42 +1,10 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { BinanceSocketService, KlineData } from './services/binance';
+import { BinanceSocketService } from './services/binance';
 import { forkJoin, map, catchError, of } from 'rxjs';
 import { TradeStorageService } from './services/trade-storage.service';
 import { FormsModule } from '@angular/forms';
-
-interface TradeSignal {
-  symbol: string;
-  type: 'LONG' | 'SHORT';
-  pattern: string;      // Назва патерна: "Hammer", "Engulfing", "Momentum"
-  currentPrice: number;
-  stopLoss: number;
-  takeProfit: number;
-  profitPercent: number;
-  volumeMultiplier: number;
-  liqAmount: number;    // Сума ліквідацій за хвилину
-  timestamp: number;
-  rr: number;           // Співвідношення Ризик/Прибуток
-}
-
-interface HistoricalLog {
-  time: string;
-  symbol: string;
-  type: string;
-  pattern: string; // ДОДАНО
-  price: number;
-  liq: number;
-}
-
-interface OpenPosition {
-  symbol: string;
-  type: 'LONG' | 'SHORT';
-  entryPrice: number;
-  currentSL: number;
-  takeProfit: number;
-  pattern: string;
-  openedAt: number;
-}
+import { HistoricalLog, OpenPosition, TradeSignal } from './models/models';
 
 @Component({
   selector: 'app-root',

@@ -1,0 +1,57 @@
+.app-wrapper {
+  padding: 20px;
+  background: #0b0e11;
+  color: #eaecef;
+  min-height: 100vh;
+}
+
+.signals-header {
+  margin-bottom: 20px;
+
+  .status-badge {
+    background: #1e2329;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 14px;
+    border: 1px solid #333;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      background: #0ecb81;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #0ecb81;
+    }
+
+    .count {
+      color: #f3ba2f;
+      font-weight: bold;
+      font-size: 16px;
+    }
+  }
+}
+
+.signals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 15px;
+  margin-bottom: 40px;
+}
+
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px;
+  background: #1e2329;
+  border-radius: 12px;
+  border: 2px dashed #333;
+  color: #555;
+
+  .icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+  }
+}

@@ -1,0 +1,44 @@
+<div class="history-container">
+  <div class="history-header">
+    <h3>📜 Журнал угод (LocalStorage)</h3>
+  </div>
+
+  <table class="history-table">
+    <thead>
+    <tr>
+      <th>Час</th>
+      <th>Пара</th>
+      <th>Патерн</th>
+      <th>Результат</th>
+      <th>Ціна</th>
+      <th class="text-right">Ліквідації ($)</th>
+    </tr>
+    </thead>
+    <tbody>
+      @for (log of history; track log.time + log.symbol) {
+        <tr>
+          <td class="time-cell">{{ log.time }}</td>
+          <td>
+            <a [href]="getBinanceLink(log.symbol)" target="_blank" class="pair-link">
+              {{ log.symbol }} ↗
+            </a>
+          </td>
+          <td class="pattern-cell">{{ log.pattern }}</td>
+          <td>
+            <span class="side-cell" [style.color]="log.type === 'LONG' ? '#0ecb81' : '#f6465d'">
+              {{ log.type }}
+            </span>
+          </td>
+          <td>{{ log.price | number:'1.2-6' }}</td>
+          <td class="liq-cell text-right">${{ log.liq | number:'1.0-0' }}</td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="6" class="empty-cell">
+            Журнал поки що порожній. Дані будуть зберігатися автоматично.
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

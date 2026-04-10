@@ -1,8 +1,14 @@
 {
-  "/api/binance": {
+  "/api/binance/futures": {
     "target": "https://fapi.binance.com",
     "secure": true,
     "changeOrigin": true,
-    "pathRewrite": { "^/api/binance": "" }
+    "pathRewrite": { "^/api/binance/futures": "" }
+  },
+  "/api/binance/spot": {
+    "target": "https://api.binance.com",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": { "^/api/binance/spot": "" }
   }
 }

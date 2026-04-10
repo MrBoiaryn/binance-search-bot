@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { BinanceSocketService, KlineData } from './services/binance';
 import { forkJoin, map, catchError, of } from 'rxjs';
 import { TradeStorageService } from './services/trade-storage.service';
+import { FormsModule } from '@angular/forms';
 
 interface TradeSignal {
   symbol: string;
@@ -40,7 +41,7 @@ interface OpenPosition {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './app.html',
   styleUrls: ['./app.scss']
 })
@@ -58,8 +59,13 @@ export class App implements OnInit {
 
   // ПАРАМЕТРИ СКАНЕРА
   SWING_PERIOD = 10;           // Період для визначення локальних піків/днів
-  VOLUME_THRESHOLD = 5;        // Поріг аномального об'єму (х5)
-  MIN_LIQUIDATION = 1000;      // Поріг ліквідацій ($) для підтвердження
+  VOLUME_THRESHOLD = 2;        // Поріг аномального об'єму (х5)
+  MIN_LIQUIDATION = 0;      // Поріг ліквідацій ($) для підтвердження
+
+  marketType: 'spot' | 'futures' = 'futures';
+  timeframe = '1m';
+
+  private socketSub: any;
 
   constructor(
     private socketService: BinanceSocketService,
@@ -73,6 +79,20 @@ export class App implements OnInit {
     this.openPositions = this.storage.loadOpenPositions();
     this.startScanner();
     this.initHeartbeat();
+  }
+
+  restartScanner() {
+    console.log("♻️ Перезапуск сканера...");
+    if (this.socketSub) this.socketSub.unsubscribe();
+
+    // Очищуємо старі дані
+    this.activeSignals.clear();
+    this.signalsList = [];
+    this.klineHistory.clear();
+    this.volumeAverages.clear();
+    this.liquidationsCurrentMin.clear();
+
+    this.startScanner();
   }
 
   openTrade(sig: TradeSignal) {
@@ -93,11 +113,9 @@ export class App implements OnInit {
   }
 
   startScanner() {
-    this.socketService.getTopPairs().subscribe(pairs => {
-      console.log(`📡 Отримано ${pairs.length} пар. Завантаження історії...`);
-
+    this.socketService.getTopPairs(this.marketType).subscribe(pairs => {
       const historyRequests = pairs.map(p =>
-        this.socketService.getKlinesHistory(p).pipe(
+        this.socketService.getKlinesHistory(p, this.timeframe, this.marketType).pipe(
           map(data => ({ symbol: p.toUpperCase(), data })),
           catchError(() => of(null))
         )
@@ -106,22 +124,14 @@ export class App implements OnInit {
       forkJoin(historyRequests).subscribe(results => {
         results.filter(r => r !== null).forEach((res: any) => {
           const formatted = res.data.map((k: any) => ({
-            close: parseFloat(k[4]),
-            high: parseFloat(k[2]),
-            low: parseFloat(k[3]),
-            open: parseFloat(k[1]),
-            volume: parseFloat(k[5])
+            close: parseFloat(k[4]), high: parseFloat(k[2]), low: parseFloat(k[3]), open: parseFloat(k[1]), volume: parseFloat(k[5])
           }));
-
           this.klineHistory.set(res.symbol, formatted);
-
-          // Розрахунок середнього об'єму з історії
-          const avg = formatted.reduce((acc: any, curr: any) => acc + curr.volume, 0) / formatted.length;
+          const avg = formatted.reduce((a: any, b: any) => a + b.volume, 0) / formatted.length;
           this.volumeAverages.set(res.symbol, avg);
         });
 
-        console.log("📦 Історія готова. Підключення до WebSocket...");
-        this.socketService.connectKlines(pairs).subscribe(data => {
+        this.socketSub = this.socketService.connectKlines(pairs, this.timeframe, this.marketType).subscribe(data => {
           this.analyzeData(data);
         });
       });

@@ -1,0 +1,11 @@
+@import 'abstracts/variables';
+@import 'abstracts/mixins';
+@import 'base/reset';
+
+body {
+  font-family: 'Arial', sans-serif;
+  background-color: $bg-color;
+  color: $text-color;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

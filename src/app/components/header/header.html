@@ -1,0 +1,67 @@
+<div class="header-container">
+  <div class="header-top">
+    <h2>
+      <span>🎯 Sniper PRO Settings</span>
+      <span class="badge">Max Package</span>
+    </h2>
+    <div class="status">
+      Статус: <span class="online">🟢 Online</span>
+    </div>
+  </div>
+
+  <div class="settings-grid">
+    <div class="settings-group">
+      <div class="input-block">
+        <label>Ринок</label>
+        <select [(ngModel)]="localSettings.marketType">
+          <option value="futures">Futures (USD-M)</option>
+          <option value="spot">Spot Market</option>
+        </select>
+      </div>
+      <div class="input-block">
+        <label>Таймфрейм</label>
+        <select [(ngModel)]="localSettings.timeframe">
+          @for (tf of timeframes; track tf) {
+            <option [value]="tf">{{ tf }}</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="input-block">
+        <label>Об'єм (x)</label>
+        <input type="number" step="0.5" [(ngModel)]="localSettings.volumeThreshold">
+      </div>
+      <div class="input-block">
+        <label>Swing (Бари)</label>
+        <input type="number" [(ngModel)]="localSettings.swingPeriod">
+      </div>
+      @if (localSettings.marketType === 'futures') {
+        <div class="input-block">
+          <label>Мін. Лікв. ($)</label>
+          <input type="number" step="1000" [(ngModel)]="localSettings.minLiquidation">
+        </div>
+      }
+    </div>
+
+    <div class="settings-group">
+      <div class="input-block">
+        <label class="pro-label">Мін. R/R</label>
+        <input type="number" step="0.5" [(ngModel)]="localSettings.minRR" class="pro-input">
+      </div>
+      <div class="checkbox-group">
+        <label>
+          <input type="checkbox" [(ngModel)]="localSettings.soundEnabled">
+          🔊 Звукові Алерти
+        </label>
+        <label>
+          <input type="checkbox" [(ngModel)]="localSettings.holdStale">
+          👻 Затримка "Привидів" (15s)
+        </label>
+      </div>
+    </div>
+
+    <button class="apply-btn" (click)="apply()">ЗАСТОСУВАТИ</button>
+  </div>
+</div>

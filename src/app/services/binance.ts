@@ -1,35 +1,27 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, Subject } from 'rxjs';
-
-export interface KlineData {
-  type: 'kline' | 'liquidation';
-  symbol: string;
-  isClosed?: boolean;
-  open?: number;
-  high?: number;
-  low?: number;
-  close?: number;
-  volume?: number;
-  startTime?: number;
-  side?: string; // для ліквідацій
-  amount?: number; // для ліквідацій
-}
+import { KlineData } from '../models/models';
 
 @Injectable({ providedIn: 'root' })
 export class BinanceSocketService {
   private ws: WebSocket | null = null;
   private socketSubject = new Subject<KlineData>();
+  private activeStreams: string = '';
 
   constructor(private http: HttpClient) {}
 
-  getTopPairs(): Observable<string[]> {
+  getTopPairs(market: 'spot' | 'futures'): Observable<string[]> {
+    const endpoint = market === 'futures'
+      ? '/api/binance/futures/fapi/v1/ticker/24hr'
+      : '/api/binance/spot/api/v3/ticker/24hr';
+
     return new Observable(observer => {
-      this.http.get<any[]>('/api/binance/fapi/v1/ticker/24hr').subscribe(data => {
+      this.http.get<any[]>(endpoint).subscribe(data => {
         const topPairs = data
           .filter(t => t.symbol.endsWith('USDT'))
-          .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
-          .slice(0, 50)
+          .sort((a, b) => parseFloat(b.quoteVolume || b.v) - parseFloat(a.quoteVolume || a.v))
+          .slice(0, 100)
           .map(t => t.symbol.toLowerCase());
         observer.next(topPairs);
         observer.complete();
@@ -37,48 +29,100 @@ export class BinanceSocketService {
     });
   }
 
-  connectKlines(pairs: string[]): Observable<KlineData> {
-    if (this.ws) this.ws.close();
+  connectKlines(pairs: string[], timeframe: string, market: 'spot' | 'futures'): Observable<KlineData> {
+    // 1. Очищуємо старий сокет правильно
+    this.closeExistingSocket();
 
-    // Підписуємось на свічки ТА на глобальний потік ліквідацій (!forceOrder@arr)
-    const streams = [...pairs.map(p => `${p}@kline_1m`), '!forceOrder@arr'].join('/');
-    const wsUrl = `wss://fstream.binance.com/stream?streams=${streams}`;
+    const baseUrl = market === 'futures' ? 'wss://fstream.binance.com' : 'wss://stream.binance.com:9443';
+    let streamsList = pairs.map(p => `${p}@kline_${timeframe}`);
+    if (market === 'futures') streamsList.push('!forceOrder@arr');
 
+    this.activeStreams = streamsList.join('/');
+    const wsUrl = `${baseUrl}/stream?streams=${this.activeStreams}`;
+
+    console.log(`📡 Спроба підключення до ${market} сокету...`);
     this.ws = new WebSocket(wsUrl);
-    this.ws.onmessage = (event) => {
-      const parsed = JSON.parse(event.data);
 
-      // Обробка свічки
-      if (parsed.data && parsed.data.e === 'kline') {
-        const kline = parsed.data.k;
-        this.socketSubject.next({
-          type: 'kline',
-          symbol: parsed.data.s,
-          isClosed: kline.x,
-          open: parseFloat(kline.o),
-          high: parseFloat(kline.h),
-          low: parseFloat(kline.l),
-          close: parseFloat(kline.c),
-          volume: parseFloat(kline.v),
-          startTime: kline.t
-        });
-      }
-      // Обробка ліквідацій
-      else if (parsed.data && parsed.data.e === 'forceOrder') {
-        const o = parsed.data.o;
-        this.socketSubject.next({
-          type: 'liquidation',
-          symbol: o.s,
-          side: o.S,
-          amount: parseFloat(o.p) * parseFloat(o.q)
-        });
+    this.ws.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        if (!parsed.data) return;
+
+        if (parsed.data.e === 'kline') {
+          const kline = parsed.data.k;
+          this.socketSubject.next({
+            type: 'kline',
+            symbol: parsed.data.s,
+            isClosed: kline.x,
+            open: parseFloat(kline.o),
+            high: parseFloat(kline.h),
+            low: parseFloat(kline.l),
+            close: parseFloat(kline.c),
+            volume: parseFloat(kline.v),
+            startTime: kline.t
+          });
+        } else if (parsed.data.e === 'forceOrder') {
+          const o = parsed.data.o;
+          this.socketSubject.next({
+            type: 'liquidation',
+            symbol: o.s,
+            side: o.S,
+            amount: parseFloat(o.p) * parseFloat(o.q)
+          });
+        }
+      } catch (e) {
+        console.error("❌ Помилка парсингу сокета:", e);
       }
     };
+
+    this.ws.onerror = (err) => {
+      console.error("🚨 WebSocket Error:", err);
+    };
+
+    this.ws.onclose = (e) => {
+      console.warn(`🔌 Сокет закрито (Код: ${e.code}). Реконнект через 5 сек...`);
+      // Не робимо реконнект, якщо ми самі його закрили (код 1000)
+      if (e.code !== 1000) {
+        setTimeout(() => this.reconnect(market, timeframe, pairs), 5000);
+      }
+    };
+
     return this.socketSubject.asObservable();
   }
 
-  getKlinesHistory(symbol: string, interval: string = '1m', limit: number = 250): Observable<any[]> {
-    const url = `/api/binance/fapi/v1/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=${limit}`;
-    return this.http.get<any[]>(url);
+  private closeExistingSocket() {
+    if (this.ws) {
+      console.log("🧹 Очищення старого з'єднання...");
+      this.ws.onmessage = null;
+      this.ws.onerror = null;
+      this.ws.onclose = null;
+      // Використовуємо код 1000 (нормальне закриття)
+      this.ws.close(1000);
+      this.ws = null;
+    }
+  }
+
+  getKlinesHistory(symbol: string, interval: string, market: 'spot' | 'futures'): Observable<any[]> {
+    const apiBase = market === 'futures' ? '/api/binance/futures/fapi/v1' : '/api/binance/spot/api/v3';
+    return this.http.get<any[]>(`${apiBase}/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=250`);
+  }
+
+  private reconnect(market: 'spot' | 'futures', timeframe: string, pairs: string[]) {
+    // Перевіряємо, чи сокет вже випадково не відкритий, щоб не плодити дублі
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
+    console.log("🔄 Спроба автоматичного відновлення зв'язку...");
+    this.connectKlines(pairs, timeframe, market);
+  }
+
+  getExchangeInfo(marketType: 'spot' | 'futures'): Observable<any> {
+    // Використовуємо твій проксі-шлях, інакше браузер видасть помилку і квоти не завантажаться!
+    const apiBase = marketType === 'futures'
+      ? '/api/binance/futures/fapi/v1'
+      : '/api/binance/spot/api/v3';
+
+    return this.http.get(`${apiBase}/exchangeInfo`);
   }
 }

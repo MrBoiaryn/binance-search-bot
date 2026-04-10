@@ -1,0 +1,51 @@
+<div class="signal-card"
+     [style.borderTopColor]="sig.type === 'LONG' ? '#0ecb81' : '#f6465d'"
+     [style.opacity]="sig.isStale ? 0.5 : 1">
+
+  <div class="card-header">
+    <div class="pair-info">
+      <a [href]="getBinanceLink()" target="_blank" class="symbol-link">
+        {{ sig.symbol }} ↗
+      </a>
+      <div class="pattern-badge">{{ sig.pattern }} Pattern</div>
+    </div>
+    <div class="side-badge" [style.color]="sig.type === 'LONG' ? '#0ecb81' : '#f6465d'">
+      {{ sig.type }}
+    </div>
+  </div>
+
+  <div class="price-display">
+    {{ sig.currentPrice | number:'1.2-6' }} <span class="unit">USDT</span>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box">
+      <div class="stat-label">Об'єм</div>
+      <div class="stat-value">x{{ sig.volumeMultiplier | number:'1.1-1' }}</div>
+    </div>
+    <div class="stat-box" [class.high-liq]="sig.liqAmount > 5000">
+      <div class="stat-label">Ліквідації</div>
+      <div class="stat-value">${{ sig.liqAmount | number:'1.0-0' }}</div>
+    </div>
+  </div>
+
+  <div class="profit-calc">
+    <div class="profit-header">
+      <span>Pot: <b class="green">+{{ sig.profitPercent | number:'1.2-2' }}%</b></span>
+      <span>R/R: <b [style.color]="sig.rr > 1.5 ? '#0ecb81' : '#f3ba2f'">{{ sig.rr | number:'1.1-1' }}</b></span>
+    </div>
+    <div class="rr-bar-container">
+      <div class="rr-red-part"></div>
+      <div class="rr-green-part" [style.flex]="sig.rr"></div>
+    </div>
+  </div>
+
+  <button class="trade-btn" (click)="onOpenTrade.emit(sig)">
+    ВІДКРИТИ УГОДУ (x100)
+  </button>
+
+  <div class="levels-row">
+    <div class="level">SL: <span class="red">{{ sig.stopLoss | number:'1.2-6' }}</span></div>
+    <div class="level text-right">TP: <span class="green">{{ sig.takeProfit | number:'1.2-6' }}</span></div>
+  </div>
+</div>

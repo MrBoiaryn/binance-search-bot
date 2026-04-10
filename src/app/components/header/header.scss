@@ -1,0 +1,118 @@
+.header-container {
+  background: #1e2329;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  border: 1px solid #333;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px dashed #333;
+    padding-bottom: 15px;
+
+    h2 {
+      color: #f3ba2f;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .badge {
+        background: #0ecb81;
+        color: #000;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+    }
+
+    .status {
+      font-size: 12px;
+      color: #848e9c;
+      .online { color: #0ecb81; font-weight: bold; }
+    }
+  }
+
+  .settings-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-end;
+  }
+
+  .settings-group {
+    display: flex;
+    gap: 15px;
+    background: #12161c;
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid #2b2f36;
+  }
+
+  .input-block {
+    label {
+      display: block;
+      font-size: 10px;
+      color: #848e9c;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      &.pro-label { color: #0ecb81; font-weight: bold; }
+    }
+
+    select, input {
+      background: #2b2f36;
+      color: white;
+      border: 1px solid #444;
+      padding: 6px;
+      border-radius: 4px;
+      outline: none;
+      width: 70px;
+    }
+
+    select { width: auto; }
+
+    .pro-input {
+      background: rgba(14, 203, 129, 0.1);
+      color: #0ecb81;
+      font-weight: bold;
+      border: 1px solid #0ecb81;
+      width: 50px;
+    }
+  }
+
+  .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    margin-left: 10px;
+
+    label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #eaecef;
+      cursor: pointer;
+    }
+  }
+
+  .apply-btn {
+    margin-left: auto;
+    background: #f3ba2f;
+    color: #0b0e11;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+    &:hover { opacity: 0.8; }
+  }
+}

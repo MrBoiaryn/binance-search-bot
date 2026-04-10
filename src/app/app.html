@@ -1,163 +1,38 @@
-<div style="padding: 20px; font-family: sans-serif; background: #0b0e11; color: #eaecef; min-height: 100vh;">
+<div class="app-wrapper">
+  <app-header
+    [settings]="settings"
+    (settingsChanged)="onSettingsUpdated($event)">
+  </app-header>
 
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <h2 style="color: #f3ba2f; margin: 0; display: flex; align-items: center; gap: 10px;">
-      <span>🎯 Sniper Futures Scanner</span>
-      <span style="background: #2b2f36; color: #848e9c; font-size: 12px; padding: 4px 8px; border-radius: 4px; font-weight: normal;">1m TF</span>
+  <div class="signals-header">
+    <h2 class="title-row">
+      <div class="status-badge">
+        <span class="dot"></span>
+        📡 Активні сигнали: <span class="count">{{ signalsList.length }}</span>
+      </div>
     </h2>
-    <div style="background: #1e2329; padding: 10px 15px; border-radius: 8px; font-size: 14px; border: 1px solid #333; display: flex; align-items: center; gap: 10px;">
-      <span style="width: 8px; height: 8px; background: #0ecb81; border-radius: 50%; box-shadow: 0 0 10px #0ecb81;"></span>
-      📡 Активні сигнали: <span style="color: #f3ba2f; font-weight: bold; font-size: 16px;">{{ signalsList.length }}</span>
-    </div>
   </div>
 
   @if (openPositions.length > 0) {
-    <div style="margin-bottom: 30px; background: rgba(14, 203, 129, 0.05); border-radius: 12px; border: 1px solid #0ecb81; padding: 20px;">
-      <h3 style="color: #0ecb81; margin-top: 0; display: flex; align-items: center; gap: 10px;">
-        💼 Мої активні позиції <small style="color: #848e9c; font-weight: normal;">(Плече x100)</small>
-      </h3>
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
-        @for (pos of openPositions; track pos.openedAt) {
-          <div style="background: #1e2329; border-radius: 10px; padding: 15px; border-left: 5px solid #0ecb81; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-              <b style="font-size: 18px; color: #fff;">{{ pos.symbol }}</b>
-              <span style="background: #2b2f36; padding: 2px 8px; border-radius: 4px; font-size: 11px; color: #f3ba2f;">{{ pos.pattern }}</span>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; margin-bottom: 15px;">
-              <div>
-                <div style="color: #848e9c; margin-bottom: 2px;">Ціна входу</div>
-                <div style="font-weight: bold;">{{ pos.entryPrice | number:'1.2-6' }}</div>
-              </div>
-              <div style="text-align: right;">
-                <div style="color: #f6465d; margin-bottom: 2px;">Trailing SL 🛡️</div>
-                <div style="font-weight: bold; color: #f6465d;">{{ pos.currentSL | number:'1.2-6' }}</div>
-              </div>
-            </div>
-
-            <button (click)="closePosition(pos, 'MANUAL', 0)"
-                    style="width: 100%; background: #f6465d; color: white; border: none; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s;"
-                    onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-              ЗАКРИТИ РУКАМИ
-            </button>
-          </div>
-        }
-      </div>
-    </div>
   }
 
-  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px;">
+  <div class="signals-grid">
     @for (sig of signalsList; track sig.symbol) {
-      <div style="background: #1e2329; border-radius: 12px; padding: 16px; border-top: 4px solid; transition: transform 0.2s;"
-           [style.borderTopColor]="sig.type === 'LONG' ? '#0ecb81' : '#f6465d'">
-
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-          <div>
-            <a [href]="getBinanceLink(sig.symbol)" target="_blank" rel="noopener noreferrer"
-               style="color: #fff; text-decoration: none; font-size: 20px; font-weight: bold; border-bottom: 1px dashed #444;">
-              {{ sig.symbol }} ↗
-            </a>
-            <div style="font-size: 11px; color: #f3ba2f; margin-top: 4px; font-weight: bold; text-transform: uppercase;">
-              {{ sig.pattern }} Pattern
-            </div>
-          </div>
-          <div [style.color]="sig.type === 'LONG' ? '#0ecb81' : '#f6465d'"
-               style="font-weight: bold; font-size: 16px; background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 6px;">
-            {{ sig.type }}
-          </div>
-        </div>
-
-        <div style="font-size: 26px; font-weight: bold; margin-bottom: 15px;">
-          {{ sig.currentPrice | number:'1.2-6' }} <span style="font-size: 12px; color: #444;">USDT</span>
-        </div>
-
-        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-          <div style="flex: 1; background: #2b2f36; padding: 10px; border-radius: 8px; text-align: center;">
-            <div style="font-size: 10px; color: #848e9c; text-transform: uppercase; margin-bottom: 4px;">Об'єм</div>
-            <div style="color: #f3ba2f; font-weight: bold;">x{{ sig.volumeMultiplier | number:'1.1-1' }}</div>
-          </div>
-          <div style="flex: 1; background: #2b2f36; padding: 10px; border-radius: 8px; text-align: center;"
-               [style.border]="sig.liqAmount > 5000 ? '1px solid #f6465d' : 'none'">
-            <div style="font-size: 10px; color: #848e9c; text-transform: uppercase; margin-bottom: 4px;">Ліквідації</div>
-            <div style="color: #f6465d; font-weight: bold;">${{ sig.liqAmount | number:'1.0-0' }}</div>
-          </div>
-        </div>
-
-        <div style="background: #12161c; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #222;">
-          <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;">
-            <span style="color: #848e9c;">Pot: <b style="color: #0ecb81;">+{{ sig.profitPercent | number:'1.2-2' }}%</b></span>
-            <span style="color: #848e9c;">R/R: <b [style.color]="sig.rr > 1.5 ? '#0ecb81' : '#f3ba2f'">{{ sig.rr | number:'1.1-1' }}</b></span>
-          </div>
-          <div style="display: flex; gap: 4px; background: #1e2329; padding: 2px; border-radius: 10px;">
-            <div style="height: 6px; flex: 1; background: #f6465d; border-radius: 10px;"></div>
-            <div [style.flex]="sig.rr" style="height: 6px; background: #0ecb81; border-radius: 10px; opacity: 0.8;"></div>
-          </div>
-        </div>
-
-        <button (click)="openTrade(sig)"
-                style="width: 100%; background: #0ecb81; color: #000; font-weight: bold; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-bottom: 15px; transition: 0.2s;"
-                onmouseover="this.style.background='#0ab472'" onmouseout="this.style.background='#0ecb81'">
-          ВІДКРИТИ УГОДУ (x100)
-        </button>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 11px;">
-          <div style="color: #848e9c;">SL: <span style="color: #f6465d; font-weight: bold;">{{ sig.stopLoss | number:'1.2-6' }}</span></div>
-          <div style="color: #848e9c; text-align: right;">TP: <span style="color: #0ecb81; font-weight: bold;">{{ sig.takeProfit | number:'1.2-6' }}</span></div>
-        </div>
-
-      </div>
+      <app-signal-card
+        [sig]="sig"
+        [marketType]="settings.marketType"
+        (onOpenTrade)="openTrade($event)">
+      </app-signal-card>
     } @empty {
-      <div style="grid-column: 1 / -1; text-align: center; padding: 60px; background: #1e2329; border-radius: 12px; border: 2px dashed #333; color: #555;">
-        <div style="font-size: 40px; margin-bottom: 10px;">🔭</div>
-        Чекаємо на аномальний об'єм або ліквідації... Поки що на ринку тиша.
+      <div class="empty-state">
+        <div class="icon">🔭</div>
+        Чекаємо на аномальний об'єм... Поки що тиша.
       </div>
     }
   </div>
 
-  <div style="margin-top: 40px; background: #1e2329; border-radius: 12px; border: 1px solid #333; overflow: hidden;">
-    <div style="padding: 15px 20px; background: #2b2f36; border-bottom: 1px solid #333;">
-      <h3 style="color: #848e9c; margin: 0; font-size: 16px;">📜 Журнал угод (LocalStorage)</h3>
-    </div>
-
-    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-      <thead style="background: rgba(0,0,0,0.1);">
-      <tr style="color: #848e9c; text-align: left; border-bottom: 1px solid #333;">
-        <th style="padding: 15px 20px;">Час</th>
-        <th style="padding: 15px 20px;">Пара</th>
-        <th style="padding: 15px 20px;">Патерн</th>
-        <th style="padding: 15px 20px;">Результат</th>
-        <th style="padding: 15px 20px;">Ціна</th>
-        <th style="padding: 15px 20px; text-align: right;">Ліквідації ($)</th>
-      </tr>
-      </thead>
-      <tbody>
-        @for (log of lastSignalsHistory; track log.time + log.symbol) {
-          <tr style="border-bottom: 1px solid #2b2f36;">
-            <td style="padding: 12px 20px; color: #666;">{{ log.time }}</td>
-            <td style="padding: 12px 20px;">
-              <a [href]="getBinanceLink(log.symbol)" target="_blank" style="color: #f3ba2f; text-decoration: none; font-weight: bold;">
-                {{ log.symbol }} ↗
-              </a>
-            </td>
-            <td style="padding: 12px 20px; color: #aaa; font-size: 12px;">{{ log.pattern }}</td>
-            <td style="padding: 12px 20px;">
-              <span [style.color]="log.type === 'LONG' ? '#0ecb81' : '#f6465d'" style="font-weight: bold;">
-                {{ log.type }}
-              </span>
-            </td>
-            <td style="padding: 12px 20px;">{{ log.price | number:'1.2-6' }}</td>
-            <td style="padding: 12px 20px; color: #f6465d; text-align: right;">
-              ${{ log.liq | number:'1.0-0' }}
-            </td>
-          </tr>
-        } @empty {
-          <tr>
-            <td colspan="6" style="padding: 40px; text-align: center; color: #666; font-style: italic; background: #12161c;">
-              Журнал поки що порожній. Дані будуть зберігатися автоматично.
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
+  <app-history-table
+    [history]="lastSignalsHistory"
+    [marketType]="settings.marketType">
+  </app-history-table>
 </div>

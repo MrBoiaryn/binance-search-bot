@@ -14,7 +14,6 @@ import { generateBinanceLink } from '../utils/link-helper';
 export class SignalCard {
   @Input() sig!: TradeSignal;
   @Input() marketType: 'spot' | 'futures' = 'futures';
-  @Output() onOpenTrade = new EventEmitter<TradeSignal>();
 
   getBinanceLink(): string {
     return generateBinanceLink(

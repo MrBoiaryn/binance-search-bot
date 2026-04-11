@@ -41,16 +41,6 @@ export interface HistoricalLog {
   quoteAsset: string; // ДОДАТИ
 }
 
-export interface OpenPosition {
-  symbol: string;
-  type: 'LONG' | 'SHORT';
-  entryPrice: number;
-  currentSL: number;
-  takeProfit: number;
-  pattern: string;
-  openedAt: number;
-}
-
 // НОВИЙ ІНТЕРФЕЙС НАЛАШТУВАНЬ
 export interface ScannerSettings {
   marketType: 'spot' | 'futures';
@@ -58,11 +48,12 @@ export interface ScannerSettings {
   volumeThreshold: number;
   swingPeriod: number;
   minLiquidation: number;
-  minRR: number;         // Мінімальний Risk/Reward
-  soundEnabled: boolean; // Звукові сповіщення
-  holdStale: boolean;    // Чи показувати "привидів" 15 сек
+  minRR: number;
+  soundEnabled: boolean;
+  holdStale: boolean;
+  showLong: boolean;  // Додано
+  showShort: boolean; // Додано
 }
-
 export interface PatternContext {
   kline: any;          // Поточна свічка (live)
   lastCandle: any;     // Попередня закрита свічка

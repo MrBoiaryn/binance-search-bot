@@ -50,14 +50,26 @@
         <label class="pro-label">Мін. R/R</label>
         <input type="number" step="0.5" [(ngModel)]="localSettings.minRR" class="pro-input">
       </div>
+
+      <div class="checkbox-group">
+        <label class="check-container long-check">
+          <input type="checkbox" [(ngModel)]="localSettings.showLong">
+          <span class="check-text">📈 LONG</span>
+        </label>
+        <label class="check-container short-check">
+          <input type="checkbox" [(ngModel)]="localSettings.showShort">
+          <span class="check-text">📉 SHORT</span>
+        </label>
+      </div>
+
       <div class="checkbox-group">
         <label>
           <input type="checkbox" [(ngModel)]="localSettings.soundEnabled">
-          🔊 Звукові Алерти
+          🔊 Звук
         </label>
         <label>
           <input type="checkbox" [(ngModel)]="localSettings.holdStale">
-          👻 Затримка "Привидів" (15s)
+          👻 Привиди
         </label>
       </div>
     </div>

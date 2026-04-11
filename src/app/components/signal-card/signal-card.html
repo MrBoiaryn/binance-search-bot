@@ -40,10 +40,6 @@
     </div>
   </div>
 
-  <button class="trade-btn" (click)="onOpenTrade.emit(sig)">
-    ВІДКРИТИ УГОДУ (x100)
-  </button>
-
   <div class="levels-row">
     <div class="level">SL: <span class="red">{{ sig.stopLoss | number:'1.2-6' }}</span></div>
     <div class="level text-right">TP: <span class="green">{{ sig.takeProfit | number:'1.2-6' }}</span></div>

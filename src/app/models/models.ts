@@ -41,6 +41,7 @@ export interface HistoricalLog {
   sl: number;    // Додано
   tp: number;    // Додано
   liq: number;
+  rr: number; // ✅ ДОДАЛИ ПОЛЕ R/R
 }
 
 // НОВИЙ ІНТЕРФЕЙС НАЛАШТУВАНЬ

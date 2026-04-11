@@ -19,6 +19,7 @@
         <th>Вхід (Entry)</th>
         <th>Stop Loss</th>
         <th>Take Profit</th>
+        <th>R/R</th>
         <th class="text-right">Ліквідації ($)</th>
       </tr>
       </thead>
@@ -40,11 +41,14 @@
             <td class="entry-cell">{{ log.price | number:'1.2-6' }}</td>
             <td class="sl-cell">{{ log.sl | number:'1.2-6' }}</td>
             <td class="tp-cell">{{ log.tp | number:'1.2-6' }}</td>
+            <td class="rr-cell" [style.color]="log.rr >= 1.5 ? '#0ecb81' : '#f3ba2f'">
+              {{ log.rr | number:'1.1-2' }}
+            </td>
             <td class="liq-cell text-right">${{ log.liq | number:'1.0-0' }}</td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="8" class="empty-cell">
+            <td colspan="9" class="empty-cell">
               Журнал поки що порожній. Дані зберігаються автоматично після закриття свічки з сигналом.
             </td>
           </tr>

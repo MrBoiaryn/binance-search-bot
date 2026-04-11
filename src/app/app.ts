@@ -180,7 +180,7 @@ export class App implements OnInit {
         ? kline.high * 1.0005
         : kline.low * 0.9995;
 
-      this.addToHistory(symbol, signal.type, entryPrice, signal.liqAmount, signal.pattern, signal.stopLoss, signal.takeProfit);
+      this.addToHistory(symbol, signal.type, entryPrice, signal.liqAmount, signal.pattern, signal.stopLoss, signal.takeProfit, signal.rr);
     }
 
     this.cleanupKlineData(symbol);
@@ -355,7 +355,7 @@ export class App implements OnInit {
     };
   }
 
-  private addToHistory(symbol: string, type: string, entryPrice: number, liq: number, pattern: string, sl: number, tp: number) {
+  private addToHistory(symbol: string, type: string, entryPrice: number, liq: number, pattern: string, sl: number, tp: number, rr: number) {
     this.lastSignalsHistory.unshift({
       id: Date.now() + Math.random(),
       time: new Date().toLocaleTimeString(),
@@ -363,9 +363,10 @@ export class App implements OnInit {
       quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
       type,
       pattern,
-      price: entryPrice, // Зберігаємо розраховану точку входу
-      sl: sl,            // Зберігаємо Stop Loss
-      tp: tp,            // Зберігаємо Take Profit
+      price: entryPrice,
+      sl: sl,
+      tp: tp,
+      rr: rr, // ✅ ЗБЕРІГАЄМО R/R
       liq
     });
     if (this.lastSignalsHistory.length > 20) this.lastSignalsHistory.pop();

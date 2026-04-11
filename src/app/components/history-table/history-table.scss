@@ -8,7 +8,12 @@
     padding: 15px 20px;
     background: #2b2f36;
     border-bottom: 1px solid #333;
-    h3 { color: #848e9c; margin: 0; font-size: 16px; }
+
+    h3 {
+      color: #848e9c;
+      margin: 0;
+      font-size: 16px;
+    }
 
     display: flex;
     justify-content: space-between;
@@ -51,7 +56,8 @@
   white-space: nowrap;
 
   thead {
-    background: rgba(0,0,0,0.2);
+    background: rgba(0, 0, 0, 0.2);
+
     tr {
       color: #848e9c;
       text-align: left;
@@ -59,32 +65,76 @@
     }
   }
 
-  th, td { padding: 12px 16px; }
+  th, td {
+    padding: 12px 16px;
+  }
 
   tbody tr {
     border-bottom: 1px solid #2b2f36;
-    &:hover { background: rgba(255,255,255,0.03); }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
   }
 
-  .time-cell { color: #666; font-family: monospace; }
+  .time-cell {
+    color: #666;
+    font-family: monospace;
+  }
 
   .pair-link {
     color: #f3ba2f;
     text-decoration: none;
     font-weight: bold;
     font-size: 14px;
-    &:hover { text-decoration: underline; }
+
+    &:hover {
+      text-decoration: underline;
+    }
   }
 
-  .pattern-cell { color: #aaa; font-size: 12px; background: #2b2f36; padding: 2px 6px; border-radius: 4px;}
-  .side-cell { font-weight: bold; }
+  .pattern-cell {
+    color: #aaa;
+    font-size: 12px;
+    background: #2b2f36;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .side-cell {
+    font-weight: bold;
+  }
 
   // Стилі для нових колонок
-  .entry-cell { color: #fff; font-weight: bold; font-family: monospace; }
-  .sl-cell { color: #f6465d; opacity: 0.9; font-family: monospace; }
-  .tp-cell { color: #0ecb81; opacity: 0.9; font-family: monospace; }
+  .entry-cell {
+    color: #fff;
+    font-weight: bold;
+    font-family: monospace;
+  }
 
-  .liq-cell { color: #f6465d; font-weight: bold; }
+  .sl-cell {
+    color: #f6465d;
+    opacity: 0.9;
+    font-family: monospace;
+  }
+
+  .tp-cell {
+    color: #0ecb81;
+    opacity: 0.9;
+    font-family: monospace;
+  }
+
+  .rr-cell {
+    font-weight: bold;
+    font-family: monospace;
+    text-align: center;
+  }
+
+  .liq-cell {
+    color: #f6465d;
+    font-weight: bold;
+  }
+
   .empty-cell {
     padding: 40px;
     text-align: center;
@@ -92,5 +142,8 @@
     font-style: italic;
     background: #12161c;
   }
-  .text-right { text-align: right; }
+
+  .text-right {
+    text-align: right;
+  }
 }

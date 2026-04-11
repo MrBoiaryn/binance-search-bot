@@ -9,16 +9,49 @@
     background: #2b2f36;
     border-bottom: 1px solid #333;
     h3 { color: #848e9c; margin: 0; font-size: 16px; }
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    clear-btn {
+      background: transparent;
+      color: #f6465d; // Червоний колір Binance
+      border: 1px solid rgba(246, 70, 93, 0.3);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+
+      &:hover {
+        background: rgba(246, 70, 93, 0.1);
+        border-color: #f6465d;
+      }
+
+      &:active {
+        transform: scale(0.95);
+      }
+    }
+  }
+
+  .table-wrapper {
+    overflow-x: auto; // Щоб таблиця не ламала верстку на вузьких екранах
   }
 }
 
 .history-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px; // Трохи зменшив шрифт, щоб влізли всі колонки
+  white-space: nowrap;
 
   thead {
-    background: rgba(0,0,0,0.1);
+    background: rgba(0,0,0,0.2);
     tr {
       color: #848e9c;
       text-align: left;
@@ -26,11 +59,11 @@
     }
   }
 
-  th, td { padding: 12px 20px; }
+  th, td { padding: 12px 16px; }
 
   tbody tr {
     border-bottom: 1px solid #2b2f36;
-    &:hover { background: rgba(255,255,255,0.02); }
+    &:hover { background: rgba(255,255,255,0.03); }
   }
 
   .time-cell { color: #666; font-family: monospace; }
@@ -39,11 +72,19 @@
     color: #f3ba2f;
     text-decoration: none;
     font-weight: bold;
+    font-size: 14px;
     &:hover { text-decoration: underline; }
   }
 
-  .pattern-cell { color: #aaa; font-size: 12px; }
-  .liq-cell { color: #f6465d; }
+  .pattern-cell { color: #aaa; font-size: 12px; background: #2b2f36; padding: 2px 6px; border-radius: 4px;}
+  .side-cell { font-weight: bold; }
+
+  // Стилі для нових колонок
+  .entry-cell { color: #fff; font-weight: bold; font-family: monospace; }
+  .sl-cell { color: #f6465d; opacity: 0.9; font-family: monospace; }
+  .tp-cell { color: #0ecb81; opacity: 0.9; font-family: monospace; }
+
+  .liq-cell { color: #f6465d; font-weight: bold; }
   .empty-cell {
     padding: 40px;
     text-align: center;

@@ -10,7 +10,7 @@ export class BinanceSocketService {
 
   private readonly IGNORED_COINS = [
     'USDC', 'FDUSD', 'TUSD', 'BUSD', 'USDP', // Інші стейблкоїни
-    'EUR', 'AEUR', 'TRY', 'GBP', 'RUB'       // Фіатні валюти
+    'EUR', 'AEUR', 'TRY', 'GBP', 'RUB', 'XAU'       // Фіатні валюти
   ];
 
   constructor(private http: HttpClient) {}

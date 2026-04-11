@@ -95,6 +95,15 @@ export class App implements OnInit {
     });
   }
 
+  onClearHistory() {
+    // Питаємо підтвердження, щоб кент випадково не стер профіти
+    if (window.confirm('Ви впевнені, що хочете видалити всю історію угод?')) {
+      this.lastSignalsHistory = []; // Очищаємо масив у пам'яті
+      this.storage.saveHistory([]); // Перезаписуємо LocalStorage порожнім масивом
+      this.cdr.detectChanges();     // Оновлюємо інтерфейс
+    }
+  }
+
   private mapSymbolQuotes(symbols: any[]) {
     symbols.forEach(s => this.symbolQuotes.set(s.symbol.toUpperCase(), s.quoteAsset.toUpperCase()));
   }
@@ -165,12 +174,21 @@ export class App implements OnInit {
     const signal = this.activeSignals.get(symbol);
 
     if (signal && !signal.isStale) {
-      this.addToHistory(symbol, signal.type, kline.close!, signal.liqAmount, signal.pattern);
+      // Розрахунок правильної точки входу (на пробій)
+      // Для LONG - на 0.05% вище хая свічки. Для SHORT - на 0.05% нижче лоу.
+      const entryPrice = signal.type === 'LONG'
+        ? kline.high * 1.0005
+        : kline.low * 0.9995;
+
+      this.addToHistory(symbol, signal.type, entryPrice, signal.liqAmount, signal.pattern, signal.stopLoss, signal.takeProfit);
     }
 
     this.cleanupKlineData(symbol);
+
+    // ✅ ВЖИВАЄМО ІСНУЮЧІ МЕТОДИ ЗАМІСТЬ updateHistoryBuffers
     this.updateKlineHistory(symbol, kline);
     this.updateVolumeAverage(symbol, kline.volume!);
+
     this.updateUI();
   }
 
@@ -337,12 +355,18 @@ export class App implements OnInit {
     };
   }
 
-  private addToHistory(symbol: string, type: string, price: number, liq: number, pattern: string) {
+  private addToHistory(symbol: string, type: string, entryPrice: number, liq: number, pattern: string, sl: number, tp: number) {
     this.lastSignalsHistory.unshift({
       id: Date.now() + Math.random(),
       time: new Date().toLocaleTimeString(),
-      symbol, quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
-      type, pattern, price, liq
+      symbol,
+      quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
+      type,
+      pattern,
+      price: entryPrice, // Зберігаємо розраховану точку входу
+      sl: sl,            // Зберігаємо Stop Loss
+      tp: tp,            // Зберігаємо Take Profit
+      liq
     });
     if (this.lastSignalsHistory.length > 20) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);

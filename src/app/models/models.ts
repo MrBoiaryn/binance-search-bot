@@ -31,14 +31,16 @@ export interface TradeSignal {
 }
 
 export interface HistoricalLog {
-  id: number;      // ДОДАНО: унікальний ID (Date.now())
+  id: number;
   time: string;
   symbol: string;
+  quoteAsset: string;
   type: string;
   pattern: string;
-  price: number;
+  price: number; // Це буде наша Точка Входу (Entry)
+  sl: number;    // Додано
+  tp: number;    // Додано
   liq: number;
-  quoteAsset: string; // ДОДАТИ
 }
 
 // НОВИЙ ІНТЕРФЕЙС НАЛАШТУВАНЬ

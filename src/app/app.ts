@@ -18,19 +18,19 @@ import * as Detectors from './constants/pattern-detectors';
   styleUrls: ['./app.scss']
 })
 export class App implements OnInit {
-  activeSignals: Map<string, TradeSignal> = new Map();
-  signalsList: TradeSignal[] = [];
-  processedTicks = 0;
-  lastSignalsHistory: HistoricalLog[] = [];
+  activeSignals: Map<string, TradeSignal> = new Map(); // Поточні живі сигнали
+  signalsList: TradeSignal[] = []; // Список для відображення в UI
+  lastSignalsHistory: HistoricalLog[] = []; // Історія закритих сигналів
 
-  klineHistory: Map<string, any[]> = new Map();
-  volumeAverages: Map<string, number> = new Map();
-  liquidationsCurrentMin: Map<string, number> = new Map();
-  private removalTimeouts: Map<string, any> = new Map();
-  private socketSub: any;
-  private symbolQuotes: Map<string, string> = new Map(); // ДОДАЙ ЦЕЙ РЯДОК
+  klineHistory: Map<string, any[]> = new Map(); // Сховище свічок для аналізу
+  volumeAverages: Map<string, number> = new Map(); // Середні об'єми по парах
+  liquidationsCurrentMin: Map<string, number> = new Map(); // Накопичені ліквідації за поточну хвилину
 
-  // ЄДИНИЙ ОБ'ЄКТ НАЛАШТУВАНЬ
+  private removalTimeouts: Map<string, any> = new Map(); // Таймери для видалення "старих" сигналів
+  private socketSub: any; // Підписка на WebSocket
+  private symbolQuotes: Map<string, string> = new Map(); // Словник квот: BTCUSDT -> USDT
+
+  // Налаштування сканера
   settings: ScannerSettings = {
     marketType: 'futures',
     timeframe: '1m',
@@ -50,12 +50,11 @@ export class App implements OnInit {
 
   ngOnInit() {
     console.log(`🚀 [SYSTEM] Sniper Scanner Started (${this.settings.timeframe} ${this.settings.marketType})...`);
-    this.lastSignalsHistory = this.storage.loadHistory();
+    this.lastSignalsHistory = this.storage.loadHistory(); // Завантажуємо історію з локалу
     this.startScanner();
-    this.initHeartbeat();
   }
 
-  // МЕТОД ДЛЯ ПРИЙОМУ ЗМІН З ХЕДЕРА
+  // Обробка зміни налаштувань з хедеру
   onSettingsUpdated(newSettings: ScannerSettings) {
     this.settings = newSettings;
 
@@ -72,33 +71,27 @@ export class App implements OnInit {
   startScanner() {
     console.log(`📡 [SYSTEM] Initializing scanner for ${this.settings.marketType}...`);
 
-    // 1. Отримуємо правила ринку (Exchange Info), щоб знати квоти (USDT, BTC, etc.)
+    // 1. Отримуємо правила ринку, щоб правильно парсити пари
     this.socketService.getExchangeInfo(this.settings.marketType).subscribe({
       next: (info) => {
-        // Заповнюємо словник квот: "BTCUSDT" -> "USDT"
         info.symbols.forEach((s: any) => {
           this.symbolQuotes.set(s.symbol.toUpperCase(), s.quoteAsset.toUpperCase());
         });
 
-        // 2. Отримуємо список активних пар (Топ за об'ємом/волатильністю)
+        // 2. Беремо топ пар за об'ємом
         this.socketService.getTopPairs(this.settings.marketType).subscribe(pairs => {
           console.log(`✅ Loaded ${pairs.length} pairs. Fetching history...`);
 
-          // 3. Готуємо запити на історію (250 свічок) для кожної пари
+          // 3. Завантажуємо історію свічок
           const historyRequests = pairs.map(p =>
             this.socketService.getKlinesHistory(p, this.settings.timeframe, this.settings.marketType).pipe(
               map(data => ({ symbol: p.toUpperCase(), data })),
-              catchError(err => {
-                console.error(`❌ Error fetching history for ${p}:`, err);
-                return of(null);
-              })
+              catchError(() => of(null))
             )
           );
 
-          // 4. Чекаємо завантаження всієї історії
           forkJoin(historyRequests).subscribe(results => {
             results.filter(r => r !== null).forEach((res: any) => {
-              // Форматуємо масив свічок для технічного аналізу
               const formatted = res.data.map((k: any) => ({
                 close: parseFloat(k[4]),
                 high: parseFloat(k[2]),
@@ -107,7 +100,6 @@ export class App implements OnInit {
                 volume: parseFloat(k[5])
               }));
 
-              // Зберігаємо історію та рахуємо початковий середній об'єм
               this.klineHistory.set(res.symbol, formatted);
               const avg = formatted.reduce((acc: number, candle: any) => acc + candle.volume, 0) / formatted.length;
               this.volumeAverages.set(res.symbol, avg);
@@ -115,66 +107,45 @@ export class App implements OnInit {
 
             console.log("🚀 History loaded. Connecting to WebSocket...");
 
-            // 5. Підключаємо Live-потік даних через WebSocket
-            if (this.socketSub) this.socketSub.unsubscribe(); // Про всяк випадок чистимо старе
-
+            // 4. Підключаємо Live-потік
+            if (this.socketSub) this.socketSub.unsubscribe();
             this.socketSub = this.socketService.connectKlines(pairs, this.settings.timeframe, this.settings.marketType)
               .subscribe({
-                next: (data) => {
-                  this.analyzeData(data); // Твій основний метод аналізу
-                },
-                error: (err) => {
-                  console.error("🚨 WebSocket Connection Error:", err);
-                }
+                next: (data) => this.analyzeData(data),
+                error: (err) => console.error("🚨 WS Error:", err)
               });
           });
         });
-      },
-      error: (err) => {
-        console.error("🚨 Could not load Exchange Info:", err);
       }
     });
   }
 
   private analyzeData(data: any) {
-    // 1. ОБРОБКА ЛІКВІДАЦІЙ (накопичуємо суму в реальному часі)
+    // Обробка ліквідацій
     if (data.type === 'liquidation') {
       const current = this.liquidationsCurrentMin.get(data.symbol) || 0;
       this.liquidationsCurrentMin.set(data.symbol, current + (data.amount || 0));
       return;
     }
 
-    // 2. ПІДГОТОВКА ДАНИХ СВІЧКИ
     const kline = data;
-    this.processedTicks++;
 
-    // 3. ОБРОБКА ЗАКРИТОЇ СВІЧКИ (Фіксація результатів)
+    // Обробка закритої свічки
     if (kline.isClosed) {
-
       const signal = this.activeSignals.get(kline.symbol);
-      // Якщо свічка закрилася і був активний сигнал (не привид) — додаємо в лог
       if (signal && !signal.isStale) {
         this.addToHistory(kline.symbol, signal.type, kline.close!, signal.liqAmount, signal.pattern);
       }
 
-      // Очищуємо тимчасові дані для цієї пари
       this.activeSignals.delete(kline.symbol);
       this.liquidationsCurrentMin.delete(kline.symbol);
       this.cancelRemoval(kline.symbol);
 
-      // Оновлюємо масив історії для технічного аналізу
       let history = this.klineHistory.get(kline.symbol) || [];
-      history.push({
-        close: kline.close,
-        high: kline.high,
-        low: kline.low,
-        open: kline.open,
-        volume: kline.volume
-      });
+      history.push({ close: kline.close, high: kline.high, low: kline.low, open: kline.open, volume: kline.volume });
       if (history.length > 250) history.shift();
       this.klineHistory.set(kline.symbol, history);
 
-      // Оновлюємо середній об'єм (адаптивне середнє)
       const currentAvg = this.volumeAverages.get(kline.symbol) || kline.volume!;
       this.volumeAverages.set(kline.symbol, (currentAvg * 2 + kline.volume!) / 3);
 
@@ -182,27 +153,24 @@ export class App implements OnInit {
       return;
     }
 
-    // 4. АНАЛІЗ LIVE-СВІЧКИ (Пошук точок входу)
+    // Аналіз в реальному часі
     const history = this.klineHistory.get(kline.symbol) || [];
     if (history.length < this.settings.swingPeriod) return;
 
-    // Розрахунок об'єму (проєкція до кінця хвилини)
+    // Розрахунок аномального об'єму
     const elapsed = (Date.now() - kline.startTime!) / 60000;
     const projectedVol = elapsed > 0.1 ? kline.volume! * (1 / elapsed) : kline.volume!;
     const avgVol = this.volumeAverages.get(kline.symbol) || kline.volume!;
     const volMult = projectedVol / avgVol;
     const liqAmount = this.liquidationsCurrentMin.get(kline.symbol) || 0;
 
-    // Фільтри екстремумів (Swing Low / High)
     const lastN = history.slice(-this.settings.swingPeriod);
     const isLocalBottom = kline.low! <= Math.min(...lastN.map(k => k.low));
     const isLocalPeak = kline.high! >= Math.max(...lastN.map(k => k.high));
 
-    // Критерій аномальної активності ( Spike )
     const isSpike = volMult > this.settings.volumeThreshold ||
       (volMult > 3 && liqAmount > this.settings.minLiquidation);
 
-    // Створюємо контекст для зовнішніх детекторів
     const ctx: PatternContext = {
       kline,
       lastCandle: history[history.length - 1],
@@ -212,49 +180,26 @@ export class App implements OnInit {
 
     let signal: TradeSignal | null = null;
 
-    // ПЕРЕВІРКА ПАТЕРНІВ ЧЕРЕЗ РЕЄСТР
+    // Детектори патернів
     if (isLocalBottom && isSpike) {
       for (const detect of Detectors.LONG_DETECTORS) {
-        const patternName = detect(ctx);
-        if (patternName) {
-          signal = this.createSignal(kline, 'LONG', patternName, volMult, liqAmount, history);
-          break;
-        }
+        const name = detect(ctx);
+        if (name) { signal = this.createSignal(kline, 'LONG', name, volMult, liqAmount, history); break; }
       }
-    }
-    else if (isLocalPeak && isSpike) {
+    } else if (isLocalPeak && isSpike) {
       for (const detect of Detectors.SHORT_DETECTORS) {
-        const patternName = detect(ctx);
-        if (patternName) {
-          signal = this.createSignal(kline, 'SHORT', patternName, volMult, liqAmount, history);
-          break;
-        }
+        const name = detect(ctx);
+        if (name) { signal = this.createSignal(kline, 'SHORT', name, volMult, liqAmount, history); break; }
       }
     }
 
-    // 5. ФІЛЬТРАЦІЯ ТА ВІДОБРАЖЕННЯ
-
-    // Фільтр Risk/Reward (PRO налаштування)
-    if (signal && signal.rr < this.settings.minRR) {
-      signal = null;
-    }
-
-    if (signal) {
-      // Якщо сигнал з'явився вперше (або оновився з привида) — граємо звук
+    if (signal && signal.rr >= this.settings.minRR) {
       const currentActive = this.activeSignals.get(kline.symbol);
-      if (!currentActive || currentActive.isStale) {
-        this.playAlertSound();
-      }
-
-      this.cancelRemoval(kline.symbol); // Зупиняємо видалення, якщо ціна повернулася в паттерн
+      if (!currentActive || currentActive.isStale) this.playAlertSound();
+      this.cancelRemoval(kline.symbol);
       this.activeSignals.set(kline.symbol, signal);
     } else {
-      // Якщо паттерн зламався — або видаляємо, або робимо "привидом"
-      if (!this.settings.holdStale) {
-        this.activeSignals.delete(kline.symbol);
-      } else {
-        this.scheduleRemoval(kline.symbol);
-      }
+      this.settings.holdStale ? this.scheduleRemoval(kline.symbol) : this.activeSignals.delete(kline.symbol);
     }
 
     this.updateUI();
@@ -262,27 +207,18 @@ export class App implements OnInit {
 
   private playAlertSound() {
     if (!this.settings.soundEnabled) return;
-    try {
-      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-      audio.volume = 1;
-      audio.play();
-    } catch (e) {
-      console.warn("Autoplay blocked for sound.");
-    }
+    new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play().catch(() => {});
   }
 
   private scheduleRemoval(symbol: string) {
     const existing = this.activeSignals.get(symbol);
     if (!existing || this.removalTimeouts.has(symbol)) return;
-
     existing.isStale = true;
-    const timeout = setTimeout(() => {
+    this.removalTimeouts.set(symbol, setTimeout(() => {
       this.activeSignals.delete(symbol);
       this.removalTimeouts.delete(symbol);
       this.updateUI();
-    }, 15000);
-
-    this.removalTimeouts.set(symbol, timeout);
+    }, 15000));
   }
 
   private cancelRemoval(symbol: string) {
@@ -296,46 +232,38 @@ export class App implements OnInit {
   }
 
   private createSignal(kline: any, type: 'LONG' | 'SHORT', pattern: string, vol: number, liq: number, history: any[]): TradeSignal {
-    const symbol = kline.symbol.toUpperCase(); // СТВОРЮЄМО ЗМІННУ ТУТ
+    const symbol = kline.symbol.toUpperCase();
     const sl = type === 'LONG' ? kline.low * 0.999 : kline.high * 1.001;
     const tp = type === 'LONG' ? Math.max(...history.slice(-20).map(k => k.high)) : Math.min(...history.slice(-20).map(k => k.low));
-    const risk = Math.abs(kline.close - sl);
-    const profit = Math.abs(tp - kline.close);
 
     return {
-      symbol: symbol, // тепер воно бачить цю змінну
-      type,
-      pattern,
+      symbol, type, pattern,
       currentPrice: kline.close,
       stopLoss: sl,
       takeProfit: tp,
-      quoteAsset: this.symbolQuotes.get(symbol) || 'USDT', // тепер symbolQuotes існує
-      profitPercent: (profit / kline.close) * 100,
+      quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
+      profitPercent: (Math.abs(tp - kline.close) / kline.close) * 100,
       volumeMultiplier: vol,
       liqAmount: liq,
       timestamp: Date.now(),
-      rr: profit / (risk || 0.000001)
+      rr: Math.abs(tp - kline.close) / (Math.abs(kline.close - sl) || 0.000001)
     };
   }
 
   private addToHistory(symbol: string, type: string, price: number, liq: number, pattern: string) {
-    const quote = this.symbolQuotes.get(symbol) || 'USDT'; // Беремо квоту зі словника
-
     this.lastSignalsHistory.unshift({
       id: Date.now() + Math.random(),
       time: new Date().toLocaleTimeString(),
       symbol,
-      quoteAsset: quote, // ДОДАТИ СЮДИ
-      type,
-      pattern,
-      price,
-      liq
+      quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
+      type, pattern, price, liq
     });
-
     if (this.lastSignalsHistory.length > 20) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);
   }
 
-  private updateUI() { this.signalsList = Array.from(this.activeSignals.values()).sort((a, b) => b.liqAmount - a.liqAmount); this.cdr.detectChanges(); }
-  private initHeartbeat() { setInterval(() => { this.processedTicks = 0; }, 60000); }
+  private updateUI() {
+    this.signalsList = Array.from(this.activeSignals.values()).sort((a, b) => b.liqAmount - a.liqAmount);
+    this.cdr.detectChanges();
+  }
 }

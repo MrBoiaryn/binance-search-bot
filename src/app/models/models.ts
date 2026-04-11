@@ -37,11 +37,15 @@ export interface HistoricalLog {
   quoteAsset: string;
   type: string;
   pattern: string;
-  price: number; // Це буде наша Точка Входу (Entry)
-  sl: number;    // Додано
-  tp: number;    // Додано
+  price: number;
+  sl: number;
+  tp: number;
+  rr: number;
   liq: number;
-  rr: number; // ✅ ДОДАЛИ ПОЛЕ R/R
+  // ✅ НОВІ ПОЛЯ ДЛЯ ВІДСТЕЖЕННЯ ПОЗИЦІЙ
+  status?: 'PENDING' | 'OPENED' | 'CANCELLED' | 'SL' | 'TP';
+  isOpened?: boolean;
+  pnl?: number;
 }
 
 // НОВИЙ ІНТЕРФЕЙС НАЛАШТУВАНЬ

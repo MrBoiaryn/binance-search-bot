@@ -9,6 +9,7 @@ import { Header } from './components/header/header';
 import { SignalCard } from './components/signal-card/signal-card';
 import { HistoryTable } from './components/history-table/history-table';
 import * as Detectors from './constants/pattern-detectors';
+import { PositionTrackerService } from './services/position-tracker.service';
 
 @Component({
   selector: 'app-root',
@@ -47,6 +48,7 @@ export class App implements OnInit {
     private socketService: BinanceSocketService,
     private cdr: ChangeDetectorRef,
     private storage: TradeStorageService,
+    private tracker: PositionTrackerService,
   ) {}
 
   ngOnInit() {
@@ -159,11 +161,17 @@ export class App implements OnInit {
     if (data.type === 'liquidation') return this.handleLiquidation(data);
 
     const kline = data;
-    if (kline.isClosed) return this.handleClosedKline(kline);
 
+    // ✅ ВІДСТЕЖУЄМО ЖИВІ ПОЗИЦІЇ НА КОЖНОМУ ТІКУ
+    const isHistoryUpdated = this.tracker.processTick(kline, this.lastSignalsHistory);
+    if (isHistoryUpdated) {
+      this.storage.saveHistory(this.lastSignalsHistory); // Зберігаємо новий статус
+      this.updateUI();
+    }
+
+    if (kline.isClosed) return this.handleClosedKline(kline);
     this.processTick(kline);
   }
-
   private handleLiquidation(data: any) {
     const current = this.liquidationsCurrentMin.get(data.symbol) || 0;
     this.liquidationsCurrentMin.set(data.symbol, current + (data.amount || 0));
@@ -317,7 +325,10 @@ export class App implements OnInit {
   private createSignal(kline: any, type: 'LONG' | 'SHORT', pattern: string, vol: number, liq: number, history: any[]): TradeSignal {
     const symbol = kline.symbol.toUpperCase();
 
-    // 1. STOP LOSS
+    // 1. ВИЗНАЧАЄМО РЕАЛЬНУ ТОЧКУ ВХОДУ (на пробій патерну)
+    const entryPrice = type === 'LONG' ? kline.high * 1.0005 : kline.low * 0.9995;
+
+    // 2. STOP LOSS
     const patternCandles = history.slice(-3);
     let sl = 0;
     if (type === 'LONG') {
@@ -328,30 +339,35 @@ export class App implements OnInit {
       sl = highestPoint * 1.0005;
     }
 
-    // 2. РОЗУМНИЙ TAKE PROFIT (з передачею поточної ціни)
+    // 3. РОЗУМНИЙ TAKE PROFIT (передаємо entryPrice замість kline.close)
     const lookback = history.slice(-100);
     let tp = 0;
 
     if (type === 'LONG') {
-      const trueResistance = this.findTrueLevel(lookback, 'RESISTANCE', kline.close);
-      // Математичний захист: TP має бути мінімум на 0.5% вище ціни входу, якщо рівень занадто близько
-      tp = Math.max(trueResistance * 0.999, kline.close * 1.005);
+      const trueResistance = this.findTrueLevel(lookback, 'RESISTANCE', entryPrice);
+      // Захист: TP має бути мінімум на 0.5% вище ЦІНИ ВХОДУ
+      tp = Math.max(trueResistance * 0.999, entryPrice * 1.005);
     } else {
-      const trueSupport = this.findTrueLevel(lookback, 'SUPPORT', kline.close);
-      // Захист: TP має бути мінімум на 0.5% нижче ціни входу
-      tp = Math.min(trueSupport * 1.001, kline.close * 0.995);
+      const trueSupport = this.findTrueLevel(lookback, 'SUPPORT', entryPrice);
+      // Захист: TP має бути мінімум на 0.5% нижче ЦІНИ ВХОДУ
+      tp = Math.min(trueSupport * 1.001, entryPrice * 0.995);
     }
 
-    const risk = Math.abs(kline.close - sl) || 0.000001;
-    const reward = Math.abs(tp - kline.close);
+    // 4. ПРАВИЛЬНА МАТЕМАТИКА (Рахуємо від entryPrice, а не від kline.close!)
+    const risk = Math.abs(entryPrice - sl) || 0.000001;
+    const reward = Math.abs(tp - entryPrice);
 
     return {
-      symbol, type, pattern, currentPrice: kline.close,
-      stopLoss: sl, takeProfit: tp,
+      symbol, type, pattern,
+      currentPrice: kline.close, // Поточну ціну залишаємо для відображення в UI
+      stopLoss: sl,
+      takeProfit: tp,
       quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
-      profitPercent: (reward / kline.close) * 100,
-      volumeMultiplier: vol, liqAmount: liq, timestamp: Date.now(),
-      rr: reward / risk
+      profitPercent: (reward / entryPrice) * 100, // Відсоток профіту теж від ціни входу
+      volumeMultiplier: vol,
+      liqAmount: liq,
+      timestamp: Date.now(),
+      rr: reward / risk // Тепер це буде збігатися з Binance на 100%
     };
   }
 
@@ -367,7 +383,9 @@ export class App implements OnInit {
       sl: sl,
       tp: tp,
       rr: rr, // ✅ ЗБЕРІГАЄМО R/R
-      liq
+      liq,
+      status: 'PENDING', // ✅ ДОДАЛИ СТАТУС ПРИ СТВОРЕННІ
+      isOpened: false    // ✅ ДОДАЛИ ПРАПОРЕЦЬ
     });
     if (this.lastSignalsHistory.length > 20) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);

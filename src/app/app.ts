@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BinanceSocketService } from './services/binance';
-import { forkJoin, map, catchError, of } from 'rxjs';
+import { forkJoin, map, catchError, of, mergeMap, toArray, from, delay } from 'rxjs';
 import { TradeStorageService } from './services/trade-storage.service';
 import { FormsModule } from '@angular/forms';
 import { HistoricalLog, PatternContext, ScannerSettings, TradeSignal } from './models/models';
@@ -101,9 +101,14 @@ export class App implements OnInit {
 
   private loadMarketData() {
     this.socketService.getTopPairs(this.settings.marketType).subscribe(pairs => {
-      const historyRequests = pairs.map(p => this.createHistoryRequest(p));
+      console.log(`📡 [SYSTEM] Processing ${pairs.length} pairs in batches...`);
 
-      forkJoin(historyRequests).subscribe(results => {
+      // Перетворюємо масив пар у потік RxJS
+      from(pairs).pipe(
+        // mergeMap з лімітом (наприклад, 5) контролює кількість паралельних запитів
+        mergeMap(p => this.createHistoryRequest(p).pipe(delay(100)), 5),
+        toArray() // Збираємо все назад у масив після завершення
+      ).subscribe(results => {
         this.processHistoryResults(results);
         this.connectWebSocket(pairs);
       });

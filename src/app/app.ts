@@ -321,12 +321,6 @@ export class App implements OnInit {
     };
   }
 
-  openTrade(sig: TradeSignal) {
-    const newPos: OpenPosition = { symbol: sig.symbol, type: sig.type, entryPrice: sig.currentPrice, currentSL: sig.stopLoss, takeProfit: sig.takeProfit, pattern: sig.pattern, openedAt: Date.now() };
-    this.openPositions.push(newPos);
-    this.storage.saveOpenPositions(this.openPositions);
-  }
-
   private updateTrailingStops(kline: any) {
     let changed = false;
     this.openPositions = this.openPositions.map(pos => {

@@ -298,16 +298,44 @@ export class App implements OnInit {
 
   private createSignal(kline: any, type: 'LONG' | 'SHORT', pattern: string, vol: number, liq: number, history: any[]): TradeSignal {
     const symbol = kline.symbol.toUpperCase();
-    const sl = type === 'LONG' ? kline.low * 0.999 : kline.high * 1.001;
-    const tp = type === 'LONG' ? Math.max(...history.slice(-20).map(k => k.high)) : Math.min(...history.slice(-20).map(k => k.low));
+
+    // 1. ПОКРАЩЕНИЙ STOP LOSS (Захист за екстремумом патерну)
+    // Беремо останні 3 свічки, щоб побачити весь розворот
+    const patternCandles = history.slice(-3);
+    let sl = 0;
+
+    if (type === 'LONG') {
+      const lowestPoint = Math.min(...patternCandles.map(k => k.low), kline.low);
+      sl = lowestPoint * 0.9995; // Відступ 0.05% нижче від підтримки
+    } else {
+      const highestPoint = Math.max(...patternCandles.map(k => k.high), kline.high);
+      sl = highestPoint * 1.0005; // Відступ 0.05% вище від опору
+    }
+
+    // 2. ПОКРАЩЕНИЙ TAKE PROFIT (Пошук глобального рівня)
+    // Дивимося на 80 свічок назад для пошуку сильних рівнів
+    const lookback = history.slice(-80);
+    let tp = 0;
+
+    if (type === 'LONG') {
+      const structuralResistance = Math.max(...lookback.map(k => k.high));
+      tp = structuralResistance * 0.999; // Тейк на 0.1% нижче рівня опору
+    } else {
+      const structuralSupport = Math.min(...lookback.map(k => k.low));
+      tp = structuralSupport * 1.001; // Тейк на 0.1% вище рівня підтримки
+    }
+
+    // 3. РОЗРАХУНОК МЕТРИК УГОДИ
+    const risk = Math.abs(kline.close - sl) || 0.000001; // Захист від ділення на нуль
+    const reward = Math.abs(tp - kline.close);
 
     return {
       symbol, type, pattern, currentPrice: kline.close,
       stopLoss: sl, takeProfit: tp,
       quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
-      profitPercent: (Math.abs(tp - kline.close) / kline.close) * 100,
+      profitPercent: (reward / kline.close) * 100,
       volumeMultiplier: vol, liqAmount: liq, timestamp: Date.now(),
-      rr: Math.abs(tp - kline.close) / (Math.abs(kline.close - sl) || 0.000001)
+      rr: reward / risk // Правильний Risk/Reward ratio
     };
   }
 

@@ -4,7 +4,7 @@ import { BinanceSocketService } from './services/binance';
 import { forkJoin, map, catchError, of } from 'rxjs';
 import { TradeStorageService } from './services/trade-storage.service';
 import { FormsModule } from '@angular/forms';
-import { HistoricalLog, OpenPosition, PatternContext, ScannerSettings, TradeSignal } from './models/models';
+import { HistoricalLog, PatternContext, ScannerSettings, TradeSignal } from './models/models';
 import { Header } from './components/header/header';
 import { SignalCard } from './components/signal-card/signal-card';
 import { HistoryTable } from './components/history-table/history-table';

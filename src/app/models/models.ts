@@ -41,16 +41,6 @@ export interface HistoricalLog {
   quoteAsset: string; // ДОДАТИ
 }
 
-export interface OpenPosition {
-  symbol: string;
-  type: 'LONG' | 'SHORT';
-  entryPrice: number;
-  currentSL: number;
-  takeProfit: number;
-  pattern: string;
-  openedAt: number;
-}
-
 // НОВИЙ ІНТЕРФЕЙС НАЛАШТУВАНЬ
 export interface ScannerSettings {
   marketType: 'spot' | 'futures';

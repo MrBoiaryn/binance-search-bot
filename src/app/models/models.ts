@@ -48,11 +48,12 @@ export interface ScannerSettings {
   volumeThreshold: number;
   swingPeriod: number;
   minLiquidation: number;
-  minRR: number;         // Мінімальний Risk/Reward
-  soundEnabled: boolean; // Звукові сповіщення
-  holdStale: boolean;    // Чи показувати "привидів" 15 сек
+  minRR: number;
+  soundEnabled: boolean;
+  holdStale: boolean;
+  showLong: boolean;  // Додано
+  showShort: boolean; // Додано
 }
-
 export interface PatternContext {
   kline: any;          // Поточна свічка (live)
   lastCandle: any;     // Попередня закрита свічка

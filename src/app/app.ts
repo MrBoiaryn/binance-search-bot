@@ -22,7 +22,6 @@ export class App implements OnInit {
   signalsList: TradeSignal[] = [];
   processedTicks = 0;
   lastSignalsHistory: HistoricalLog[] = [];
-  openPositions: OpenPosition[] = [];
 
   klineHistory: Map<string, any[]> = new Map();
   volumeAverages: Map<string, number> = new Map();
@@ -52,7 +51,6 @@ export class App implements OnInit {
   ngOnInit() {
     console.log(`🚀 [SYSTEM] Sniper Scanner Started (${this.settings.timeframe} ${this.settings.marketType})...`);
     this.lastSignalsHistory = this.storage.loadHistory();
-    this.openPositions = this.storage.loadOpenPositions();
     this.startScanner();
     this.initHeartbeat();
   }
@@ -152,7 +150,6 @@ export class App implements OnInit {
 
     // 3. ОБРОБКА ЗАКРИТОЇ СВІЧКИ (Фіксація результатів)
     if (kline.isClosed) {
-      this.updateTrailingStops(kline);
 
       const signal = this.activeSignals.get(kline.symbol);
       // Якщо свічка закрилася і був активний сигнал (не привид) — додаємо в лог
@@ -319,34 +316,6 @@ export class App implements OnInit {
       timestamp: Date.now(),
       rr: profit / (risk || 0.000001)
     };
-  }
-
-  private updateTrailingStops(kline: any) {
-    let changed = false;
-    this.openPositions = this.openPositions.map(pos => {
-      if (pos.symbol !== kline.symbol) return pos;
-      const history = this.klineHistory.get(pos.symbol) || [];
-      if (history.length < 5) return pos;
-      const last5 = history.slice(-5);
-      if (pos.type === 'LONG') {
-        const lowest5 = Math.min(...last5.map(k => k.low));
-        if (lowest5 > pos.currentSL) { pos.currentSL = lowest5; changed = true; }
-        if (kline.low <= pos.currentSL) { this.closePosition(pos, 'STOP-LOSS', kline.close); return null; }
-      } else {
-        const highest5 = Math.max(...last5.map(k => k.high));
-        if (highest5 < pos.currentSL) { pos.currentSL = highest5; changed = true; }
-        if (kline.high >= pos.currentSL) { this.closePosition(pos, 'STOP-LOSS', kline.close); return null; }
-      }
-      return pos;
-    }).filter(p => p !== null) as OpenPosition[];
-    if (changed) this.storage.saveOpenPositions(this.openPositions);
-  }
-
-  closePosition(pos: OpenPosition, reason: string, price: number) {
-    this.addToHistory(pos.symbol, pos.type, price, 0, `${pos.pattern} (${reason})`);
-    this.openPositions = this.openPositions.filter(p => p !== pos);
-    this.storage.saveOpenPositions(this.openPositions);
-    this.storage.saveHistory(this.lastSignalsHistory);
   }
 
   private addToHistory(symbol: string, type: string, price: number, liq: number, pattern: string) {

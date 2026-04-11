@@ -171,13 +171,14 @@ export class App implements OnInit {
         volume: kline.volume
       });
 
-      if (history.length > 250) history.shift(); // Тримаємо не більше 250 свічок
+      if (history.length > 1000) history.shift(); // Тримаємо не більше 250 свічок
       this.klineHistory.set(kline.symbol, history);
 
       // Перераховуємо середній об'єм (згладжений)
       const currentAvg = this.volumeAverages.get(kline.symbol) || kline.volume!;
-      this.volumeAverages.set(kline.symbol, (currentAvg * 2 + kline.volume!) / 3);
+      const newAvg = (currentAvg * 19 + kline.volume!) / 20;
 
+      this.volumeAverages.set(kline.symbol, newAvg);
       this.updateUI();
       return;
     }

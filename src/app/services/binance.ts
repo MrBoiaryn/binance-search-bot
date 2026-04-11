@@ -74,7 +74,7 @@ export class BinanceSocketService {
 
   getKlinesHistory(symbol: string, interval: string, market: 'spot' | 'futures'): Observable<any[]> {
     const baseUrl = this.getBaseUrl(market);
-    return this.http.get<any[]>(`${baseUrl}/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=250`);
+    return this.http.get<any[]>(`${baseUrl}/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=1000`);
   }
 
   private reconnect(market: 'spot' | 'futures', timeframe: string, pairs: string[]) {

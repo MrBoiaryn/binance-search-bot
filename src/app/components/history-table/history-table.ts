@@ -15,6 +15,8 @@ export class HistoryTable {
   @Input() history: HistoricalLog[] = [];
   @Input() marketType: 'spot' | 'futures' = 'futures';
 
+  @Output() clearHistory = new EventEmitter<void>();
+
   getBinanceLink(log: HistoricalLog): string {
     return generateBinanceLink(
       log.symbol,

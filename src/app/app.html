@@ -29,6 +29,7 @@
 
   <app-history-table
     [history]="lastSignalsHistory"
-    [marketType]="settings.marketType">
+    [marketType]="settings.marketType"
+    (clearHistory)="onClearHistory()">
   </app-history-table>
 </div>

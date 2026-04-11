@@ -1,44 +1,59 @@
 <div class="history-container">
   <div class="history-header">
-    <h3>📜 Журнал угод (LocalStorage)</h3>
+    <h3>📜 Журнал сигналів (Очікувані входи)</h3>
+    @if (history.length > 0) {
+      <button class="clear-btn" (click)="clearHistory.emit()">
+        🗑️ Очистити історію
+      </button>
+    }
   </div>
 
-  <table class="history-table">
-    <thead>
-    <tr>
-      <th>Час</th>
-      <th>Пара</th>
-      <th>Патерн</th>
-      <th>Результат</th>
-      <th>Ціна</th>
-      <th class="text-right">Ліквідації ($)</th>
-    </tr>
-    </thead>
-    <tbody>
-      @for (log of history; track log.id) {
-        <tr>
-          <td class="time-cell">{{ log.time }}</td>
-          <td>
-            <a [href]="getBinanceLink(log)" target="_blank" class="pair-link">
-              {{ log.symbol }} ↗
-            </a>
-          </td>
-          <td class="pattern-cell">{{ log.pattern }}</td>
-          <td>
-            <span class="side-cell" [style.color]="log.type === 'LONG' ? '#0ecb81' : '#f6465d'">
-              {{ log.type }}
-            </span>
-          </td>
-          <td>{{ log.price | number:'1.2-6' }}</td>
-          <td class="liq-cell text-right">${{ log.liq | number:'1.0-0' }}</td>
-        </tr>
-      } @empty {
-        <tr>
-          <td colspan="6" class="empty-cell">
-            Журнал поки що порожній. Дані будуть зберігатися автоматично.
-          </td>
-        </tr>
-      }
-    </tbody>
-  </table>
+  <div class="table-wrapper">
+    <table class="history-table">
+      <thead>
+      <tr>
+        <th>Час</th>
+        <th>Пара</th>
+        <th>Патерн</th>
+        <th>Тип</th>
+        <th>Вхід (Entry)</th>
+        <th>Stop Loss</th>
+        <th>Take Profit</th>
+        <th>R/R</th>
+        <th class="text-right">Ліквідації ($)</th>
+      </tr>
+      </thead>
+      <tbody>
+        @for (log of history; track log.id) {
+          <tr>
+            <td class="time-cell">{{ log.time }}</td>
+            <td>
+              <a [href]="getBinanceLink(log)" target="_blank" class="pair-link">
+                {{ log.symbol }} ↗
+              </a>
+            </td>
+            <td class="pattern-cell">{{ log.pattern }}</td>
+            <td>
+              <span class="side-cell" [style.color]="log.type === 'LONG' ? '#0ecb81' : '#f6465d'">
+                {{ log.type }}
+              </span>
+            </td>
+            <td class="entry-cell">{{ log.price | number:'1.2-6' }}</td>
+            <td class="sl-cell">{{ log.sl | number:'1.2-6' }}</td>
+            <td class="tp-cell">{{ log.tp | number:'1.2-6' }}</td>
+            <td class="rr-cell" [style.color]="log.rr >= 1.5 ? '#0ecb81' : '#f3ba2f'">
+              {{ log.rr | number:'1.1-2' }}
+            </td>
+            <td class="liq-cell text-right">${{ log.liq | number:'1.0-0' }}</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="9" class="empty-cell">
+              Журнал поки що порожній. Дані зберігаються автоматично після закриття свічки з сигналом.
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
 </div>

@@ -299,34 +299,32 @@ export class App implements OnInit {
   private createSignal(kline: any, type: 'LONG' | 'SHORT', pattern: string, vol: number, liq: number, history: any[]): TradeSignal {
     const symbol = kline.symbol.toUpperCase();
 
-    // 1. ПОКРАЩЕНИЙ STOP LOSS (Захист за екстремумом патерну)
-    // Беремо останні 3 свічки, щоб побачити весь розворот
+    // 1. STOP LOSS
     const patternCandles = history.slice(-3);
     let sl = 0;
-
     if (type === 'LONG') {
       const lowestPoint = Math.min(...patternCandles.map(k => k.low), kline.low);
-      sl = lowestPoint * 0.9995; // Відступ 0.05% нижче від підтримки
+      sl = lowestPoint * 0.9995;
     } else {
       const highestPoint = Math.max(...patternCandles.map(k => k.high), kline.high);
-      sl = highestPoint * 1.0005; // Відступ 0.05% вище від опору
+      sl = highestPoint * 1.0005;
     }
 
-    // 2. ПОКРАЩЕНИЙ TAKE PROFIT (Пошук глобального рівня)
-    // Дивимося на 80 свічок назад для пошуку сильних рівнів
-    const lookback = history.slice(-80);
+    // 2. РОЗУМНИЙ TAKE PROFIT (з передачею поточної ціни)
+    const lookback = history.slice(-100);
     let tp = 0;
 
     if (type === 'LONG') {
-      const structuralResistance = Math.max(...lookback.map(k => k.high));
-      tp = structuralResistance * 0.999; // Тейк на 0.1% нижче рівня опору
+      const trueResistance = this.findTrueLevel(lookback, 'RESISTANCE', kline.close);
+      // Математичний захист: TP має бути мінімум на 0.5% вище ціни входу, якщо рівень занадто близько
+      tp = Math.max(trueResistance * 0.999, kline.close * 1.005);
     } else {
-      const structuralSupport = Math.min(...lookback.map(k => k.low));
-      tp = structuralSupport * 1.001; // Тейк на 0.1% вище рівня підтримки
+      const trueSupport = this.findTrueLevel(lookback, 'SUPPORT', kline.close);
+      // Захист: TP має бути мінімум на 0.5% нижче ціни входу
+      tp = Math.min(trueSupport * 1.001, kline.close * 0.995);
     }
 
-    // 3. РОЗРАХУНОК МЕТРИК УГОДИ
-    const risk = Math.abs(kline.close - sl) || 0.000001; // Захист від ділення на нуль
+    const risk = Math.abs(kline.close - sl) || 0.000001;
     const reward = Math.abs(tp - kline.close);
 
     return {
@@ -335,7 +333,7 @@ export class App implements OnInit {
       quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
       profitPercent: (reward / kline.close) * 100,
       volumeMultiplier: vol, liqAmount: liq, timestamp: Date.now(),
-      rr: reward / risk // Правильний Risk/Reward ratio
+      rr: reward / risk
     };
   }
 
@@ -356,4 +354,64 @@ export class App implements OnInit {
       .sort((a, b) => b.liqAmount - a.liqAmount);
     this.cdr.detectChanges();
   }
-}
+
+  /**
+   * Професійний пошук рівнів (Фрактальна кластеризація)
+   * @param history Масив свічок для аналізу (наприклад, 80-100 штук)
+   * @param type 'SUPPORT' (Дно) або 'RESISTANCE' (Вершина)
+   */
+  private findTrueLevel(history: any[], type: 'SUPPORT' | 'RESISTANCE', currentPrice: number): number {
+    const swings: number[] = [];
+
+    // 1. Шукаємо фрактали, які мають логічний сенс (тільки ВИЩЕ для опору, ТІЛЬКИ НИЖЧЕ для підтримки)
+    for (let i = 2; i < history.length - 2; i++) {
+      if (type === 'RESISTANCE') {
+        if (history[i].high > currentPrice) { // ФІЛЬТР: Опір має бути вище ціни входу
+          const isFractalHigh = history[i].high > history[i-1].high && history[i].high > history[i-2].high &&
+            history[i].high > history[i+1].high && history[i].high > history[i+2].high;
+          if (isFractalHigh) swings.push(history[i].high);
+        }
+      } else {
+        if (history[i].low < currentPrice) { // ФІЛЬТР: Підтримка має бути нижче ціни входу
+          const isFractalLow = history[i].low < history[i-1].low && history[i].low < history[i-2].low &&
+            history[i].low < history[i+1].low && history[i].low < history[i+2].low;
+          if (isFractalLow) swings.push(history[i].low);
+        }
+      }
+    }
+
+    // Fallback: якщо ми на абсолютному Хаї або Лоу і фракталів попереду немає
+    if (swings.length === 0) {
+      if (type === 'RESISTANCE') {
+        const above = history.filter(k => k.high > currentPrice);
+        if (above.length === 0) return currentPrice * 1.015; // Якщо це абсолютний перехай, цілимось на +1.5%
+        const sorted = [...above].sort((a, b) => b.high - a.high);
+        return sorted[1]?.high || sorted[0].high;
+      } else {
+        const below = history.filter(k => k.low < currentPrice);
+        if (below.length === 0) return currentPrice * 0.985; // Якщо абсолютне дно, цілимось на -1.5%
+        const sorted = [...below].sort((a, b) => a.low - b.low);
+        return sorted[1]?.low || sorted[0].low;
+      }
+    }
+
+    // 2. Кластеризація (Шукаємо зону з найбільшою кількістю дотиків)
+    let bestLevel = swings[0];
+    let maxTouches = 0;
+    const tolerance = 0.002;
+
+    for (const s of swings) {
+      const touches = swings.filter(x => Math.abs(x - s) / s <= tolerance).length;
+
+      if (touches > maxTouches) {
+        maxTouches = touches;
+        bestLevel = s;
+      } else if (touches === maxTouches) {
+        // Якщо дотиків однаково: для тейку беремо НАЙБЛИЖЧИЙ рівень (щоб 100% виконався ордер)
+        if (type === 'RESISTANCE') bestLevel = Math.min(bestLevel, s);
+        else bestLevel = Math.max(bestLevel, s);
+      }
+    }
+
+    return bestLevel;
+  }}

@@ -8,18 +8,36 @@ export class BinanceSocketService {
   private ws: WebSocket | null = null;
   private socketSubject = new Subject<KlineData>();
 
+  private readonly IGNORED_COINS = [
+    'USDC', 'FDUSD', 'TUSD', 'BUSD', 'USDP', // Інші стейблкоїни
+    'EUR', 'AEUR', 'TRY', 'GBP', 'RUB'       // Фіатні валюти
+  ];
+
   constructor(private http: HttpClient) {}
 
   // Отримання топ-пар для моніторингу
   getTopPairs(market: 'spot' | 'futures'): Observable<string[]> {
     const baseUrl = this.getBaseUrl(market);
+
     return new Observable(observer => {
       this.http.get<any[]>(`${baseUrl}/ticker/24hr`).subscribe(data => {
         const topPairs = data
-          .filter(t => t.symbol.endsWith('USDT'))
+          .filter(t => {
+            // Перевіряємо, чи пара закінчується на USDT
+            if (!t.symbol.endsWith('USDT')) return false;
+
+            // Витягуємо базову монету (наприклад, з 'USDCUSDT' робимо 'USDC')
+            const baseCoin = t.symbol.replace('USDT', '');
+
+            // Пропускаємо пару, якщо базова монета є в чорному списку
+            if (this.IGNORED_COINS.includes(baseCoin)) return false;
+
+            return true;
+          })
           .sort((a, b) => parseFloat(b.quoteVolume || b.v) - parseFloat(a.quoteVolume || a.v))
-          .slice(0, 100)
+          .slice(0, 100) // Беремо топ 100 чистих альтів/біткоїн
           .map(t => t.symbol.toLowerCase());
+
         observer.next(topPairs);
         observer.complete();
       });

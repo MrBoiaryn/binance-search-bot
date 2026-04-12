@@ -28,6 +28,7 @@ export interface TradeSignal {
   rr: number;
   isStale?: boolean; // Для "режиму привидів"
   quoteAsset: string; // ДОДАТИ
+  swingStrength: number; // Додано
 }
 
 export interface HistoricalLog {
@@ -37,11 +38,17 @@ export interface HistoricalLog {
   quoteAsset: string;
   type: string;
   pattern: string;
-  price: number; // Це буде наша Точка Входу (Entry)
-  sl: number;    // Додано
-  tp: number;    // Додано
+  price: number;
+  sl: number;
+  tp: number;
+  rr: number;
   liq: number;
-  rr: number; // ✅ ДОДАЛИ ПОЛЕ R/R
+  // ✅ НОВІ ПОЛЯ ДЛЯ ВІДСТЕЖЕННЯ ПОЗИЦІЙ
+  status?: 'PENDING' | 'OPENED' | 'CANCELLED' | 'SL' | 'TP';
+  isOpened?: boolean;
+  pnl?: number;
+  volMult: number;       // Додано
+  swingStrength: number; // Додано
 }
 
 // НОВИЙ ІНТЕРФЕЙС НАЛАШТУВАНЬ
@@ -56,6 +63,7 @@ export interface ScannerSettings {
   holdStale: boolean;
   showLong: boolean;  // Додано
   showShort: boolean; // Додано
+  useDivergence: boolean; // ✅ ДОДАНО ДЛЯ ПРЕМІУМ ФІЧІ
 }
 export interface PatternContext {
   kline: any;          // Поточна свічка (live)

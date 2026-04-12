@@ -9,6 +9,7 @@ import { Header } from './components/header/header';
 import { SignalCard } from './components/signal-card/signal-card';
 import { HistoryTable } from './components/history-table/history-table';
 import * as Detectors from './constants/pattern-detectors';
+import { PositionTrackerService } from './services/position-tracker.service';
 
 @Component({
   selector: 'app-root',
@@ -29,6 +30,7 @@ export class App implements OnInit {
   private removalTimeouts: Map<string, any> = new Map();
   private socketSub: any;
   private symbolQuotes: Map<string, string> = new Map();
+  private symbolTickSizes: Map<string, number> = new Map(); // ✅ ДОДАЛИ СЛОВНИК ТІКІВ
 
   settings: ScannerSettings = {
     marketType: 'futures',
@@ -41,12 +43,14 @@ export class App implements OnInit {
     holdStale: true,
     showLong: true,
     showShort: true,
+    useDivergence: false,
   };
 
   constructor(
     private socketService: BinanceSocketService,
     private cdr: ChangeDetectorRef,
     private storage: TradeStorageService,
+    private tracker: PositionTrackerService,
   ) {}
 
   ngOnInit() {
@@ -90,7 +94,7 @@ export class App implements OnInit {
     console.log(`📡 [SYSTEM] Starting ${this.settings.marketType} scanner...`);
 
     this.socketService.getExchangeInfo(this.settings.marketType).subscribe(info => {
-      this.mapSymbolQuotes(info.symbols);
+      this.processExchangeInfo(info.symbols);
       this.loadMarketData();
     });
   }
@@ -104,8 +108,18 @@ export class App implements OnInit {
     }
   }
 
-  private mapSymbolQuotes(symbols: any[]) {
-    symbols.forEach(s => this.symbolQuotes.set(s.symbol.toUpperCase(), s.quoteAsset.toUpperCase()));
+// ✅ ПЕРЕЙМЕНОВАНО НА БІЛЬШ ЛОГІЧНУ НАЗВУ
+  private processExchangeInfo(symbols: any[]) {
+    symbols.forEach(s => {
+      const symbol = s.symbol.toUpperCase();
+      this.symbolQuotes.set(symbol, s.quoteAsset.toUpperCase());
+
+      // Дістаємо правильний крок ціни (tickSize) з налаштувань Binance
+      const priceFilter = s.filters.find((f: any) => f.filterType === 'PRICE_FILTER');
+      if (priceFilter) {
+        this.symbolTickSizes.set(symbol, parseFloat(priceFilter.tickSize));
+      }
+    });
   }
 
   private loadMarketData() {
@@ -159,8 +173,14 @@ export class App implements OnInit {
     if (data.type === 'liquidation') return this.handleLiquidation(data);
 
     const kline = data;
-    if (kline.isClosed) return this.handleClosedKline(kline);
+    const isHistoryUpdated = this.tracker.processTick(kline, this.lastSignalsHistory);
 
+    if (isHistoryUpdated) {
+      this.storage.saveHistory(this.lastSignalsHistory);
+      this.updateUI();
+    }
+
+    if (kline.isClosed) return this.handleClosedKline(kline);
     this.processTick(kline);
   }
 
@@ -172,23 +192,31 @@ export class App implements OnInit {
   private handleClosedKline(kline: any) {
     const symbol = kline.symbol;
     const signal = this.activeSignals.get(symbol);
+    const tickSize = this.symbolTickSizes.get(symbol) || 0.0001;
 
     if (signal && !signal.isStale) {
-      // Розрахунок правильної точки входу (на пробій)
-      // Для LONG - на 0.05% вище хая свічки. Для SHORT - на 0.05% нижче лоу.
+      // Розрахунок точки входу по тіках для історії
       const entryPrice = signal.type === 'LONG'
-        ? kline.high * 1.0005
-        : kline.low * 0.9995;
+        ? this.roundToTick(kline.high + tickSize, tickSize)
+        : this.roundToTick(kline.low - tickSize, tickSize);
 
-      this.addToHistory(symbol, signal.type, entryPrice, signal.liqAmount, signal.pattern, signal.stopLoss, signal.takeProfit, signal.rr);
+      this.addToHistory(
+        symbol,
+        signal.type,
+        entryPrice,
+        signal.liqAmount,
+        signal.pattern,
+        signal.stopLoss,
+        signal.takeProfit,
+        signal.rr,
+        signal.volumeMultiplier, // Передаємо для статистики
+        signal.swingStrength     // Передаємо для статистики
+      );
     }
 
     this.cleanupKlineData(symbol);
-
-    // ✅ ВЖИВАЄМО ІСНУЮЧІ МЕТОДИ ЗАМІСТЬ updateHistoryBuffers
     this.updateKlineHistory(symbol, kline);
     this.updateVolumeAverage(symbol, kline.volume!);
-
     this.updateUI();
   }
 
@@ -228,20 +256,34 @@ export class App implements OnInit {
   private detectTradeSignal(kline: any, m: any, ctx: PatternContext, history: any[]): TradeSignal | null {
     if (!m.isSpike) return null;
 
-    if (m.isLocalBottom && this.settings.showLong) {
+    // Dual-Mode: Аномальний об'єм = х2 від порогу (наприклад 2.5 * 2 = 5.0)
+    const isAnomalousVolume = m.volMult >= (this.settings.volumeThreshold * 2);
+    const hasLongDiv = this.checkAODivergence(history, 'LONG');
+    const hasShortDiv = this.checkAODivergence(history, 'SHORT');
+
+    // Якщо увімкнена дивергенція - пропускаємо або з дивером, або з аномальним об'ємом
+    const canEnterLong = this.settings.useDivergence ? (hasLongDiv || isAnomalousVolume) : true;
+    const canEnterShort = this.settings.useDivergence ? (hasShortDiv || isAnomalousVolume) : true;
+
+    if (m.isLocalBottom && this.settings.showLong && canEnterLong) {
       for (const detect of Detectors.LONG_DETECTORS) {
         const name = detect(ctx);
-        if (name) return this.createSignal(kline, 'LONG', name, m.volMult, m.liqAmount, history);
+        if (name) {
+          const suffix = isAnomalousVolume ? '🔥' : (hasLongDiv ? '💎' : '');
+          return this.createSignal(kline, 'LONG', `${name} ${suffix}`, m.volMult, m.liqAmount, history);
+        }
       }
     }
 
-    if (m.isLocalPeak && this.settings.showShort) {
+    if (m.isLocalPeak && this.settings.showShort && canEnterShort) {
       for (const detect of Detectors.SHORT_DETECTORS) {
         const name = detect(ctx);
-        if (name) return this.createSignal(kline, 'SHORT', name, m.volMult, m.liqAmount, history);
+        if (name) {
+          const suffix = isAnomalousVolume ? '🔥' : (hasShortDiv ? '💎' : '');
+          return this.createSignal(kline, 'SHORT', `${name} ${suffix}`, m.volMult, m.liqAmount, history);
+        }
       }
     }
-
     return null;
   }
 
@@ -316,60 +358,60 @@ export class App implements OnInit {
 
   private createSignal(kline: any, type: 'LONG' | 'SHORT', pattern: string, vol: number, liq: number, history: any[]): TradeSignal {
     const symbol = kline.symbol.toUpperCase();
+    const tickSize = this.symbolTickSizes.get(symbol) || 0.0001;
 
-    // 1. STOP LOSS
+    const entryPrice = type === 'LONG'
+      ? this.roundToTick(kline.high + tickSize, tickSize)
+      : this.roundToTick(kline.low - tickSize, tickSize);
+
+    // ✅ РОЗРАХУНОК SWING STRENGTH (суто для статистики)
+    const avgPrice = history.slice(-20).reduce((acc, k) => acc + k.close, 0) / 20;
+    const swingStrength = Math.abs((entryPrice - avgPrice) / avgPrice) * 100;
+
+    // Stop Loss (1 тік за патерн)
     const patternCandles = history.slice(-3);
     let sl = 0;
     if (type === 'LONG') {
-      const lowestPoint = Math.min(...patternCandles.map(k => k.low), kline.low);
-      sl = lowestPoint * 0.9995;
+      sl = this.roundToTick(Math.min(...patternCandles.map(k => k.low), kline.low) - tickSize, tickSize);
     } else {
-      const highestPoint = Math.max(...patternCandles.map(k => k.high), kline.high);
-      sl = highestPoint * 1.0005;
+      sl = this.roundToTick(Math.max(...patternCandles.map(k => k.high), kline.high) + tickSize, tickSize);
     }
 
-    // 2. РОЗУМНИЙ TAKE PROFIT (з передачею поточної ціни)
-    const lookback = history.slice(-100);
-    let tp = 0;
+    // Take Profit (Bins - 500 свічок)
+    const lookback = history.slice(-500);
+    const rawTp = this.findTrueLevel(lookback, type === 'LONG' ? 'RESISTANCE' : 'SUPPORT', entryPrice);
+    const tp = this.roundToTick(rawTp, tickSize);
 
-    if (type === 'LONG') {
-      const trueResistance = this.findTrueLevel(lookback, 'RESISTANCE', kline.close);
-      // Математичний захист: TP має бути мінімум на 0.5% вище ціни входу, якщо рівень занадто близько
-      tp = Math.max(trueResistance * 0.999, kline.close * 1.005);
-    } else {
-      const trueSupport = this.findTrueLevel(lookback, 'SUPPORT', kline.close);
-      // Захист: TP має бути мінімум на 0.5% нижче ціни входу
-      tp = Math.min(trueSupport * 1.001, kline.close * 0.995);
-    }
-
-    const risk = Math.abs(kline.close - sl) || 0.000001;
-    const reward = Math.abs(tp - kline.close);
+    const risk = Math.abs(entryPrice - sl) || tickSize;
+    const reward = Math.abs(tp - entryPrice);
 
     return {
-      symbol, type, pattern, currentPrice: kline.close,
+      symbol, type, pattern,
+      currentPrice: kline.close,
       stopLoss: sl, takeProfit: tp,
       quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
-      profitPercent: (reward / kline.close) * 100,
-      volumeMultiplier: vol, liqAmount: liq, timestamp: Date.now(),
-      rr: reward / risk
+      profitPercent: (reward / entryPrice) * 100,
+      volumeMultiplier: vol,
+      liqAmount: liq,
+      timestamp: Date.now(),
+      rr: reward / risk,
+      swingStrength: swingStrength // Передаємо далі
     };
   }
 
-  private addToHistory(symbol: string, type: string, entryPrice: number, liq: number, pattern: string, sl: number, tp: number, rr: number) {
+  private addToHistory(symbol: string, type: string, entryPrice: number, liq: number, pattern: string, sl: number, tp: number, rr: number, vol: number, swing: number) {
     this.lastSignalsHistory.unshift({
       id: Date.now() + Math.random(),
       time: new Date().toLocaleTimeString(),
       symbol,
       quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
-      type,
-      pattern,
-      price: entryPrice,
-      sl: sl,
-      tp: tp,
-      rr: rr, // ✅ ЗБЕРІГАЄМО R/R
-      liq
+      type, pattern, price: entryPrice, sl, tp, rr, liq,
+      volMult: vol,        // ✅ Для статистики
+      swingStrength: swing, // ✅ Для статистики
+      status: 'PENDING',
+      isOpened: false
     });
-    if (this.lastSignalsHistory.length > 20) this.lastSignalsHistory.pop();
+    if (this.lastSignalsHistory.length > 1000) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);
   }
 
@@ -386,57 +428,168 @@ export class App implements OnInit {
    * @param type 'SUPPORT' (Дно) або 'RESISTANCE' (Вершина)
    */
   private findTrueLevel(history: any[], type: 'SUPPORT' | 'RESISTANCE', currentPrice: number): number {
-    const swings: number[] = [];
+    if (history.length === 0) return currentPrice * (type === 'RESISTANCE' ? 1.02 : 0.98);
 
-    // 1. Шукаємо фрактали, які мають логічний сенс (тільки ВИЩЕ для опору, ТІЛЬКИ НИЖЧЕ для підтримки)
-    for (let i = 2; i < history.length - 2; i++) {
-      if (type === 'RESISTANCE') {
-        if (history[i].high > currentPrice) { // ФІЛЬТР: Опір має бути вище ціни входу
-          const isFractalHigh = history[i].high > history[i-1].high && history[i].high > history[i-2].high &&
-            history[i].high > history[i+1].high && history[i].high > history[i+2].high;
-          if (isFractalHigh) swings.push(history[i].high);
+    // 1. Визначаємо діапазон аналізу
+    const highs = history.map(k => k.high);
+    const lows = history.map(k => k.low);
+    const minPrice = Math.min(...lows);
+    const maxPrice = Math.max(...highs);
+
+    // Створюємо 50 "кошиків" (зон) між мінімумом і максимумом
+    const binCount = 50;
+    const binSize = (maxPrice - minPrice) / binCount;
+    const bins = new Array(binCount).fill(0);
+
+    // 2. Наповнюємо кошики "вагою"
+    // Кожна свічка додає вагу в кошик, через який вона проходила
+    history.forEach(k => {
+      const startBin = Math.floor((k.low - minPrice) / binSize);
+      const endBin = Math.floor((k.high - minPrice) / binSize);
+
+      for (let i = startBin; i <= endBin; i++) {
+        if (i >= 0 && i < binCount) {
+          // Додаємо вагу (можна додавати 1 як дотик, або k.volume для точності)
+          bins[i] += 1;
         }
-      } else {
-        if (history[i].low < currentPrice) { // ФІЛЬТР: Підтримка має бути нижче ціни входу
-          const isFractalLow = history[i].low < history[i-1].low && history[i].low < history[i-2].low &&
-            history[i].low < history[i+1].low && history[i].low < history[i+2].low;
-          if (isFractalLow) swings.push(history[i].low);
-        }
+      }
+    });
+
+    // 3. Шукаємо найкращий кошик (Зону)
+    let bestBinIndex = -1;
+    let maxWeight = 0;
+
+    for (let i = 0; i < binCount; i++) {
+      const binPrice = minPrice + (i * binSize);
+
+      // Фільтр: для LONG шукаємо тільки ВИЩЕ поточної ціни, для SHORT - НИЖЧЕ
+      if (type === 'RESISTANCE' && binPrice <= currentPrice) continue;
+      if (type === 'SUPPORT' && binPrice >= currentPrice) continue;
+
+      if (bins[i] > maxWeight) {
+        maxWeight = bins[i];
+        bestBinIndex = i;
       }
     }
 
-    // Fallback: якщо ми на абсолютному Хаї або Лоу і фракталів попереду немає
-    if (swings.length === 0) {
-      if (type === 'RESISTANCE') {
-        const above = history.filter(k => k.high > currentPrice);
-        if (above.length === 0) return currentPrice * 1.015; // Якщо це абсолютний перехай, цілимось на +1.5%
-        const sorted = [...above].sort((a, b) => b.high - a.high);
-        return sorted[1]?.high || sorted[0].high;
-      } else {
-        const below = history.filter(k => k.low < currentPrice);
-        if (below.length === 0) return currentPrice * 0.985; // Якщо абсолютне дно, цілимось на -1.5%
-        const sorted = [...below].sort((a, b) => a.low - b.low);
-        return sorted[1]?.low || sorted[0].low;
-      }
+    // 4. Якщо нічого не знайшли в потрібному напрямку - беремо екстремум
+    if (bestBinIndex === -1) {
+      return type === 'RESISTANCE' ? maxPrice : minPrice;
     }
 
-    // 2. Кластеризація (Шукаємо зону з найбільшою кількістю дотиків)
-    let bestLevel = swings[0];
-    let maxTouches = 0;
-    const tolerance = 0.002;
+    // Повертаємо центр "найважчого" кошика
+    if (type === 'RESISTANCE') {
+      // Для Long тейк має бути на НИЖНІЙ межі кошика (куди ціна підніметься спочатку)
+      return minPrice + (bestBinIndex * binSize);
+    } else {
+      // Для Short тейк має бути на ВЕРХНІЙ межі кошика (куди ціна впаде спочатку)
+      return minPrice + (bestBinIndex * binSize) + binSize;
+    }
+  }
+  /**
+   * Розрахунок Awesome Oscillator (AO)
+   * Формула: SMA(High+Low/2, 5) - SMA(High+Low/2, 34)
+   */
+  private calculateAO(history: any[], index: number): number {
+    if (index < 33) return 0; // Для AO потрібно мінімум 34 свічки
 
-    for (const s of swings) {
-      const touches = swings.filter(x => Math.abs(x - s) / s <= tolerance).length;
+    let sum5 = 0;
+    for (let i = index - 4; i <= index; i++) {
+      sum5 += (history[i].high + history[i].low) / 2;
+    }
+    const sma5 = sum5 / 5;
 
-      if (touches > maxTouches) {
-        maxTouches = touches;
-        bestLevel = s;
-      } else if (touches === maxTouches) {
-        // Якщо дотиків однаково: для тейку беремо НАЙБЛИЖЧИЙ рівень (щоб 100% виконався ордер)
-        if (type === 'RESISTANCE') bestLevel = Math.min(bestLevel, s);
-        else bestLevel = Math.max(bestLevel, s);
+    let sum34 = 0;
+    for (let i = index - 33; i <= index; i++) {
+      sum34 += (history[i].high + history[i].low) / 2;
+    }
+    const sma34 = sum34 / 34;
+
+    return sma5 - sma34;
+  }
+
+  private checkAODivergence(history: any[], type: 'LONG' | 'SHORT'): boolean {
+    const len = history.length;
+    if (len < 50) return false;
+
+    // Рахуємо AO для всієї доступної історії
+    const ao = history.map((_, i) => this.calculateAO(history, i));
+
+    const currentAO = ao[len - 1];
+    const prevAO = ao[len - 2];
+
+    if (type === 'LONG') {
+      // 1. ЗАХИСТ ВІД "ПАДАЮЧОГО НОЖА" (Колір гістограми)
+      // Якщо АО падає (червона гістограма) - імпульс продавців сильний, входити ЗАБОРОНЕНО!
+      if (currentAO <= prevAO) return false;
+      if (currentAO >= 0) return false; // Дно має бути тільки під нульовою лінією
+
+      // 2. Шукаємо дно "поточної" хвилі
+      let recentMinPrice = Infinity, recentMinAO = Infinity;
+      let i = len - 1;
+      // Йдемо назад, поки хвиля не закінчиться (не перетне нуль вгору) або не пройдемо 20 свічок
+      for (; i >= len - 20; i--) {
+        if (history[i].low < recentMinPrice) recentMinPrice = history[i].low;
+        if (ao[i] < recentMinAO) recentMinAO = ao[i];
+        if (ao[i] > 0) break; // Хвиля продавців закінчилась
       }
+
+      // 3. Шукаємо дно "попередньої" хвилі
+      let pastMinPrice = Infinity, pastMinAO = Infinity;
+      // Йдемо ще далі в минуле (від кінця першої хвилі)
+      for (; i >= len - 50; i--) {
+        if (history[i].low < pastMinPrice) pastMinPrice = history[i].low;
+        if (ao[i] < pastMinAO) pastMinAO = ao[i];
+      }
+
+      // Запобіжник, якщо історія неповна
+      if (recentMinAO === Infinity || pastMinAO === Infinity) return false;
+
+      // 4. КЛАСИЧНА ДИВЕРГЕНЦІЯ:
+      // Ціна зробила нижчий мінімум (падає), а AO зробив вищий мінімум (імпульс згас)
+      return (recentMinPrice < pastMinPrice) && (recentMinAO > pastMinAO);
     }
 
-    return bestLevel;
-  }}
+    else { // Для SHORT (Ведмежа дивергенція)
+      // 1. ЗАХИСТ ВІД "РАКЕТИ" (Колір гістограми)
+      // Якщо АО росте (зелена гістограма) - імпульс покупців сильний, шортити ЗАБОРОНЕНО!
+      if (currentAO >= prevAO) return false;
+      if (currentAO <= 0) return false; // Вершина має бути тільки над нульовою лінією
+
+      // 2. Шукаємо вершину "поточної" хвилі
+      let recentMaxPrice = -Infinity, recentMaxAO = -Infinity;
+      let i = len - 1;
+      for (; i >= len - 20; i--) {
+        if (history[i].high > recentMaxPrice) recentMaxPrice = history[i].high;
+        if (ao[i] > recentMaxAO) recentMaxAO = ao[i];
+        if (ao[i] < 0) break; // Хвиля покупців закінчилась
+      }
+
+      // 3. Шукаємо вершину "попередньої" хвилі
+      let pastMaxPrice = -Infinity, pastMaxAO = -Infinity;
+      for (; i >= len - 50; i--) {
+        if (history[i].high > pastMaxPrice) pastMaxPrice = history[i].high;
+        if (ao[i] > pastMaxAO) pastMaxAO = ao[i];
+      }
+
+      if (recentMaxAO === -Infinity || pastMaxAO === -Infinity) return false;
+
+      // 4. КЛАСИЧНА ДИВЕРГЕНЦІЯ:
+      // Ціна зробила вищий максимум (росте), а AO зробив нижчий максимум (покупці видихлись)
+      return (recentMaxPrice > pastMaxPrice) && (recentMaxAO < pastMaxAO);
+    }
+  }
+
+  /**
+   * Округлює ціну до найближчого дозволеного кроку (tickSize)
+   */
+  private roundToTick(price: number, tickSize: number): number {
+    if (!tickSize) return price;
+    // Рахуємо кількість знаків після коми в tickSize (наприклад, 0.001 -> 3)
+    const precision = Math.max(0, -Math.floor(Math.log10(tickSize)));
+    // Округлюємо математично
+    const rounded = Math.round(price / tickSize) * tickSize;
+    // Повертаємо чисте число без артефактів JS
+    return parseFloat(rounded.toFixed(precision));
+  }
+}

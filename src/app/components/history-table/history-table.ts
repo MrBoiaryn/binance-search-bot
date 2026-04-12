@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { HistoricalLog, TradeSignal } from '../../models/models';
 import { DecimalPipe } from '@angular/common';
-import { generateBinanceLink } from '../utils/link-helper';
+import { generateBinanceLink } from '../../utils/link-helper';
 
 @Component({
   selector: 'app-history-table',

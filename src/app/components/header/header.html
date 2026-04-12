@@ -62,6 +62,13 @@
         </label>
       </div>
 
+      <div  class="settings-group">
+        <label class="checkbox-label pro-feature">
+          <input type="checkbox" [(ngModel)]="localSettings.useDivergence" (change)="apply()">
+          AO Divergence 💎
+        </label>
+      </div>
+
       <div class="checkbox-group">
         <label>
           <input type="checkbox" [(ngModel)]="localSettings.soundEnabled">

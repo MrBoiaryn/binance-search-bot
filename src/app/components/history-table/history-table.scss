@@ -149,6 +149,19 @@
     background: #12161c;
   }
 
+  .metrics-cell {
+    .metrics-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-family: monospace;
+      font-size: 11px;
+    }
+    .vol-val { font-weight: bold; }
+    .divider { color: #444; }
+    .swing-val { font-weight: 500; }
+  }
+
   // ✅ СТИЛІ ДЛЯ СТАТУСІВ УГОДИ (БЕЙДЖІ)
   .status-cell {
     text-align: center;

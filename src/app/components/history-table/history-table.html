@@ -20,6 +20,7 @@
         <th>Stop Loss</th>
         <th>Take Profit</th>
         <th>R/R</th>
+        <th>Метрики (V/S)</th>
         <th class="text-center">Статус</th>
         <th class="text-right">Ліквідації ($)</th>
       </tr>
@@ -45,6 +46,17 @@
             <td class="rr-cell" [style.color]="log.rr >= 1.5 ? '#0ecb81' : '#f3ba2f'">
               {{log.rr | number:'1.1-2'}}
             </td>
+            <td class="metrics-cell">
+              <div class="metrics-wrapper">
+    <span class="vol-val" [style.color]="log.volMult >= 5 ? '#f3ba2f' : '#848e9c'">
+      x{{log.volMult | number:'1.1-1'}}
+    </span>
+                <span class="divider">/</span>
+                <span class="swing-val" [style.color]="log.swingStrength >= 0.3 ? '#0ecb81' : '#f6465d'">
+      {{log.swingStrength | number:'1.2-2'}}%
+    </span>
+              </div>
+            </td>
             <td class="status-cell">
               @if (log.status === 'PENDING' || !log.status) {
                 <span class="badge pending">Очікує входу</span>
@@ -66,7 +78,7 @@
           </tr>
         } @empty {
           <tr>
-            <td colspan="10" class="empty-cell">
+            <td colspan="11" class="empty-cell">
               Журнал поки що порожній. Дані зберігаються автоматично після закриття свічки з сигналом.
             </td>
           </tr>

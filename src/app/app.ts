@@ -173,17 +173,17 @@ export class App implements OnInit {
     if (data.type === 'liquidation') return this.handleLiquidation(data);
 
     const kline = data;
-
-    // ✅ ВІДСТЕЖУЄМО ЖИВІ ПОЗИЦІЇ НА КОЖНОМУ ТІКУ
     const isHistoryUpdated = this.tracker.processTick(kline, this.lastSignalsHistory);
+
     if (isHistoryUpdated) {
-      this.storage.saveHistory(this.lastSignalsHistory); // Зберігаємо новий статус
+      this.storage.saveHistory(this.lastSignalsHistory);
       this.updateUI();
     }
 
     if (kline.isClosed) return this.handleClosedKline(kline);
     this.processTick(kline);
   }
+
   private handleLiquidation(data: any) {
     const current = this.liquidationsCurrentMin.get(data.symbol) || 0;
     this.liquidationsCurrentMin.set(data.symbol, current + (data.amount || 0));
@@ -192,15 +192,26 @@ export class App implements OnInit {
   private handleClosedKline(kline: any) {
     const symbol = kline.symbol;
     const signal = this.activeSignals.get(symbol);
-    const tickSize = this.symbolTickSizes.get(symbol) || 0.0001; // Додаємо тік
+    const tickSize = this.symbolTickSizes.get(symbol) || 0.0001;
 
     if (signal && !signal.isStale) {
-      // ✅ Вираховуємо вхід по ТІКАХ для історії
+      // Розрахунок точки входу по тіках для історії
       const entryPrice = signal.type === 'LONG'
         ? this.roundToTick(kline.high + tickSize, tickSize)
         : this.roundToTick(kline.low - tickSize, tickSize);
 
-      this.addToHistory(symbol, signal.type, entryPrice, signal.liqAmount, signal.pattern, signal.stopLoss, signal.takeProfit, signal.rr);
+      this.addToHistory(
+        symbol,
+        signal.type,
+        entryPrice,
+        signal.liqAmount,
+        signal.pattern,
+        signal.stopLoss,
+        signal.takeProfit,
+        signal.rr,
+        signal.volumeMultiplier, // Передаємо для статистики
+        signal.swingStrength     // Передаємо для статистики
+      );
     }
 
     this.cleanupKlineData(symbol);
@@ -245,37 +256,34 @@ export class App implements OnInit {
   private detectTradeSignal(kline: any, m: any, ctx: PatternContext, history: any[]): TradeSignal | null {
     if (!m.isSpike) return null;
 
-    if (m.isLocalBottom && this.settings.showLong) {
-      // ✅ ПЕРЕВІРКА ДИВЕРГЕНЦІЇ ДЛЯ LONG
-      if (this.settings.useDivergence && !this.checkAODivergence(history, 'LONG')) {
-        return null; // Відкидаємо, бо немає дивергенції
-      }
+    // Dual-Mode: Аномальний об'єм = х2 від порогу (наприклад 2.5 * 2 = 5.0)
+    const isAnomalousVolume = m.volMult >= (this.settings.volumeThreshold * 2);
+    const hasLongDiv = this.checkAODivergence(history, 'LONG');
+    const hasShortDiv = this.checkAODivergence(history, 'SHORT');
 
+    // Якщо увімкнена дивергенція - пропускаємо або з дивером, або з аномальним об'ємом
+    const canEnterLong = this.settings.useDivergence ? (hasLongDiv || isAnomalousVolume) : true;
+    const canEnterShort = this.settings.useDivergence ? (hasShortDiv || isAnomalousVolume) : true;
+
+    if (m.isLocalBottom && this.settings.showLong && canEnterLong) {
       for (const detect of Detectors.LONG_DETECTORS) {
         const name = detect(ctx);
         if (name) {
-          // Можемо додати приписку до назви патерну, щоб бачити, що це сигнал з дивером
-          const finalName = this.settings.useDivergence ? `${name} + Div` : name;
-          return this.createSignal(kline, 'LONG', finalName, m.volMult, m.liqAmount, history);
+          const suffix = isAnomalousVolume ? '🔥' : (hasLongDiv ? '💎' : '');
+          return this.createSignal(kline, 'LONG', `${name} ${suffix}`, m.volMult, m.liqAmount, history);
         }
       }
     }
 
-    if (m.isLocalPeak && this.settings.showShort) {
-      // ✅ ПЕРЕВІРКА ДИВЕРГЕНЦІЇ ДЛЯ SHORT
-      if (this.settings.useDivergence && !this.checkAODivergence(history, 'SHORT')) {
-        return null;
-      }
-
+    if (m.isLocalPeak && this.settings.showShort && canEnterShort) {
       for (const detect of Detectors.SHORT_DETECTORS) {
         const name = detect(ctx);
         if (name) {
-          const finalName = this.settings.useDivergence ? `${name} + Div` : name;
-          return this.createSignal(kline, 'SHORT', finalName, m.volMult, m.liqAmount, history);
+          const suffix = isAnomalousVolume ? '🔥' : (hasShortDiv ? '💎' : '');
+          return this.createSignal(kline, 'SHORT', `${name} ${suffix}`, m.volMult, m.liqAmount, history);
         }
       }
     }
-
     return null;
   }
 
@@ -352,38 +360,29 @@ export class App implements OnInit {
     const symbol = kline.symbol.toUpperCase();
     const tickSize = this.symbolTickSizes.get(symbol) || 0.0001;
 
-    // 1. ТОЧКА ВХОДУ (Рівно на 1 тік вище/нижче екстремуму)
     const entryPrice = type === 'LONG'
       ? this.roundToTick(kline.high + tickSize, tickSize)
       : this.roundToTick(kline.low - tickSize, tickSize);
 
-    // 2. STOP LOSS (На 1 тік за межі патерну)
+    // ✅ РОЗРАХУНОК SWING STRENGTH (суто для статистики)
+    const avgPrice = history.slice(-20).reduce((acc, k) => acc + k.close, 0) / 20;
+    const swingStrength = Math.abs((entryPrice - avgPrice) / avgPrice) * 100;
+
+    // Stop Loss (1 тік за патерн)
     const patternCandles = history.slice(-3);
     let sl = 0;
-
     if (type === 'LONG') {
-      const lowestPoint = Math.min(...patternCandles.map(k => k.low), kline.low);
-      sl = this.roundToTick(lowestPoint - tickSize, tickSize);
+      sl = this.roundToTick(Math.min(...patternCandles.map(k => k.low), kline.low) - tickSize, tickSize);
     } else {
-      const highestPoint = Math.max(...patternCandles.map(k => k.high), kline.high);
-      sl = this.roundToTick(highestPoint + tickSize, tickSize);
+      sl = this.roundToTick(Math.max(...patternCandles.map(k => k.high), kline.high) + tickSize, tickSize);
     }
 
-    // 3. TAKE PROFIT (Чиста фрактальна кластеризація без лімітів)
+    // Take Profit (Bins - 500 свічок)
     const lookback = history.slice(-500);
-    let tp = 0;
+    const rawTp = this.findTrueLevel(lookback, type === 'LONG' ? 'RESISTANCE' : 'SUPPORT', entryPrice);
+    const tp = this.roundToTick(rawTp, tickSize);
 
-    if (type === 'LONG') {
-      const safeResistance = this.findTrueLevel(lookback, 'RESISTANCE', entryPrice);
-      // Ми просто беремо межу зони. Округлення до тіка вже дасть нам потрібний мікро-зазор
-      tp = this.roundToTick(safeResistance, tickSize);
-    } else {
-      const safeSupport = this.findTrueLevel(lookback, 'SUPPORT', entryPrice);
-      tp = this.roundToTick(safeSupport, tickSize);
-    }
-
-    // 4. МАТЕМАТИКА R/R
-    const risk = Math.abs(entryPrice - sl) || tickSize; // мінімальний ризик - 1 тік
+    const risk = Math.abs(entryPrice - sl) || tickSize;
     const reward = Math.abs(tp - entryPrice);
 
     return {
@@ -392,28 +391,27 @@ export class App implements OnInit {
       stopLoss: sl, takeProfit: tp,
       quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
       profitPercent: (reward / entryPrice) * 100,
-      volumeMultiplier: vol, liqAmount: liq, timestamp: Date.now(),
-      rr: reward / risk
+      volumeMultiplier: vol,
+      liqAmount: liq,
+      timestamp: Date.now(),
+      rr: reward / risk,
+      swingStrength: swingStrength // Передаємо далі
     };
   }
 
-  private addToHistory(symbol: string, type: string, entryPrice: number, liq: number, pattern: string, sl: number, tp: number, rr: number) {
+  private addToHistory(symbol: string, type: string, entryPrice: number, liq: number, pattern: string, sl: number, tp: number, rr: number, vol: number, swing: number) {
     this.lastSignalsHistory.unshift({
       id: Date.now() + Math.random(),
       time: new Date().toLocaleTimeString(),
       symbol,
       quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
-      type,
-      pattern,
-      price: entryPrice,
-      sl: sl,
-      tp: tp,
-      rr: rr, // ✅ ЗБЕРІГАЄМО R/R
-      liq,
-      status: 'PENDING', // ✅ ДОДАЛИ СТАТУС ПРИ СТВОРЕННІ
-      isOpened: false    // ✅ ДОДАЛИ ПРАПОРЕЦЬ
+      type, pattern, price: entryPrice, sl, tp, rr, liq,
+      volMult: vol,        // ✅ Для статистики
+      swingStrength: swing, // ✅ Для статистики
+      status: 'PENDING',
+      isOpened: false
     });
-    if (this.lastSignalsHistory.length > 20) this.lastSignalsHistory.pop();
+    if (this.lastSignalsHistory.length > 30) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);
   }
 

@@ -28,6 +28,7 @@ export interface TradeSignal {
   rr: number;
   isStale?: boolean; // Для "режиму привидів"
   quoteAsset: string; // ДОДАТИ
+  swingStrength: number; // Додано
 }
 
 export interface HistoricalLog {
@@ -46,6 +47,8 @@ export interface HistoricalLog {
   status?: 'PENDING' | 'OPENED' | 'CANCELLED' | 'SL' | 'TP';
   isOpened?: boolean;
   pnl?: number;
+  volMult: number;       // Додано
+  swingStrength: number; // Додано
 }
 
 // НОВИЙ ІНТЕРФЕЙС НАЛАШТУВАНЬ

@@ -411,7 +411,7 @@ export class App implements OnInit {
       status: 'PENDING',
       isOpened: false
     });
-    if (this.lastSignalsHistory.length > 30) this.lastSignalsHistory.pop();
+    if (this.lastSignalsHistory.length > 100) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);
   }
 

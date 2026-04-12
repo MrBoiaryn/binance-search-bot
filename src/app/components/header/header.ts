@@ -31,4 +31,23 @@ export class Header {
   apply() {
     this.settingsChanged.emit({ ...this.localSettings });
   }
+
+  // Обмеження вибору
+  onTfChange(tf: string, event: any) {
+    const checked = event.target.checked;
+    if (checked) {
+      if (this.localSettings.timeframes.length >= 3) {
+        event.target.checked = false;
+        alert('Максимум 3 таймфрейми для стабільної роботи!');
+        return;
+      }
+      this.localSettings.timeframes.push(tf);
+    } else {
+      this.localSettings.timeframes = this.localSettings.timeframes.filter(t => t !== tf);
+    }
+  }
+
+  isTfSelected(tf: string): boolean {
+    return this.localSettings.timeframes.includes(tf);
+  }
 }

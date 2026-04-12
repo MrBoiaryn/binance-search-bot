@@ -1,123 +1,115 @@
 .signal-card {
   background: #1e2329;
-  border-radius: 12px;
-  padding: 16px;
-  border-top: 4px solid #333; // Колір змінюється через [style]
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-  }
+  border-radius: 8px;
+  border-top: 4px solid;
+  padding: 12px;
+  position: relative;
+  transition: all 0.3s ease;
 
   .card-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 12px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .pair-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 
     .symbol-link {
-      color: #fff;
+      color: #eaecef;
       text-decoration: none;
-      font-size: 20px;
       font-weight: bold;
-      border-bottom: 1px dashed #444;
-      &:hover { border-bottom-color: #f3ba2f; }
+      font-size: 1.1rem;
+      &:hover { color: #f3ba2f; }
     }
+  }
 
-    .pattern-badge {
-      font-size: 11px;
-      color: #f3ba2f;
-      margin-top: 4px;
-      font-weight: bold;
-      text-transform: uppercase;
-    }
+  // ✅ Стилі для бейджів таймфреймів
+  .tf-badge {
+    background: #2b3139;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    color: #f3ba2f;
+    border: 1px solid #474d57;
 
-    .side-badge {
-      font-weight: bold;
-      font-size: 16px;
-      background: rgba(0,0,0,0.2);
-      padding: 4px 10px;
-      border-radius: 6px;
-    }
+    &[data-tf="15m"] { color: #0ecb81; border-color: #0ecb81; }
+    &[data-tf="1h"] { color: #3b82f6; border-color: #3b82f6; }
+  }
+
+  .lvl-strength {
+    font-size: 11px;
+    color: #848e9c;
+    background: rgba(243, 186, 47, 0.1);
+    padding: 2px 6px;
+    border-radius: 12px;
+  }
+
+  .pattern-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    margin-bottom: 8px;
+    .pattern-badge { color: #848e9c; }
+    .side-badge { font-weight: bold; }
   }
 
   .price-display {
-    font-size: 26px;
+    font-size: 1.5rem;
     font-weight: bold;
-    margin-bottom: 15px;
-    .unit { font-size: 12px; color: #444; }
+    color: #eaecef;
+    margin: 10px 0;
+    .unit { font-size: 12px; color: #848e9c; }
   }
 
   .stats-row {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
 
     .stat-box {
-      flex: 1;
-      background: #2b2f36;
-      padding: 10px;
-      border-radius: 8px;
+      background: #2b3139;
+      padding: 6px;
+      border-radius: 4px;
       text-align: center;
-
+      .stat-label { font-size: 9px; color: #848e9c; text-transform: uppercase; }
+      .stat-value { font-size: 11px; color: #eaecef; font-weight: 500; }
       &.high-liq { border: 1px solid #f6465d; }
-
-      .stat-label { font-size: 10px; color: #848e9c; text-transform: uppercase; margin-bottom: 4px; }
-      .stat-value { font-weight: bold; color: #fff; }
     }
   }
 
   .profit-calc {
-    background: #12161c;
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 15px;
-    border: 1px solid #222;
-
+    margin-bottom: 12px;
     .profit-header {
       display: flex;
       justify-content: space-between;
-      font-size: 13px;
-      margin-bottom: 8px;
-      .green { color: #0ecb81; }
+      font-size: 12px;
+      margin-bottom: 4px;
     }
-
     .rr-bar-container {
+      height: 4px;
+      background: #474d57;
       display: flex;
-      gap: 4px;
-      background: #1e2329;
-      padding: 2px;
-      border-radius: 10px;
-      height: 6px;
-
-      .rr-red-part { flex: 1; background: #f6465d; border-radius: 10px; }
-      .rr-green-part { background: #0ecb81; border-radius: 10px; opacity: 0.8; }
+      border-radius: 2px;
+      overflow: hidden;
+      .rr-red-part { flex: 1; background: #f6465d; }
+      .rr-green-part { background: #0ecb81; }
     }
-  }
-
-  .trade-btn {
-    width: 100%;
-    background: #0ecb81;
-    color: #000;
-    font-weight: bold;
-    border: none;
-    padding: 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-bottom: 15px;
-    transition: 0.2s;
-    &:hover { background: #0ab472; }
   }
 
   .levels-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    display: flex;
+    justify-content: space-between;
     font-size: 11px;
-    .red { color: #f6465d; font-weight: bold; }
-    .green { color: #0ecb81; font-weight: bold; }
-    .text-right { text-align: right; }
+    font-family: monospace;
+    .red { color: #f6465d; }
+    .green { color: #0ecb81; }
   }
+
+  .green { color: #0ecb81; }
 }

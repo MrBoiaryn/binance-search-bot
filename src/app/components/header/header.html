@@ -1,86 +1,94 @@
 <div class="header-container">
   <div class="header-top">
-    <h2>
-      <span>🎯 Sniper PRO Settings</span>
-      <span class="badge">Max Package</span>
-    </h2>
-    <div class="status">
-      Статус: <span class="online">🟢 Online</span>
+    <div class="brand">
+      <span class="logo-icon">🎯</span>
+      <div class="brand-text">
+        <h2>Sniper PRO <span class="badge">MAX PACKAGE</span></h2>
+        <p class="sub-text">Advanced Market Scanner v3.0</p>
+      </div>
+    </div>
+    <div class="status-panel">
+      <div class="status-item">
+        <span class="dot online"></span> Статус: <b>Online</b>
+      </div>
+      <button class="apply-btn" (click)="apply()">ЗАСТОСУВАТИ ЗМІНИ</button>
     </div>
   </div>
 
-  <div class="settings-grid">
-    <div class="settings-group">
+  <div class="settings-main-grid">
+    <div class="settings-section">
+      <h3 class="section-title">🌐 Ринок & Час</h3>
       <div class="input-block">
-        <label>Ринок</label>
+        <label>Тип торгівлі</label>
         <select [(ngModel)]="localSettings.marketType">
           <option value="futures">Futures (USD-M)</option>
           <option value="spot">Spot Market</option>
         </select>
       </div>
-      <div class="input-block">
-        <label>Таймфрейм</label>
-        <select [(ngModel)]="localSettings.timeframe">
-          @for (tf of timeframes; track tf) {
-            <option [value]="tf">{{ tf }}</option>
-          }
-        </select>
+      <div class="tf-selection-label">Таймфрейми (max 3)</div>
+      <div class="tf-grid">
+        @for (tf of timeframes; track tf) {
+          <label class="tf-chip" [class.active]="isTfSelected(tf)">
+            <input type="checkbox" [checked]="isTfSelected(tf)" (change)="onTfChange(tf, $event)">
+            {{ tf }}
+          </label>
+        }
       </div>
     </div>
 
-    <div class="settings-group">
-      <div class="input-block">
-        <label>Об'єм (x)</label>
-        <input type="number" step="0.5" [(ngModel)]="localSettings.volumeThreshold">
+    <div class="settings-section">
+      <h3 class="section-title">📊 Технічні параметри</h3>
+      <div class="params-row">
+        <div class="input-block">
+          <label>Об'єм (x)</label>
+          <input type="number" [(ngModel)]="localSettings.volumeThreshold" step="0.1">
+        </div>
+        <div class="input-block">
+          <label>Swing (Бари)</label>
+          <input type="number" [(ngModel)]="localSettings.swingPeriod">
+        </div>
       </div>
-      <div class="input-block">
-        <label>Swing (Бари)</label>
-        <input type="number" [(ngModel)]="localSettings.swingPeriod">
-      </div>
-      @if (localSettings.marketType === 'futures') {
+      <div class="params-row">
+        <div class="input-block">
+          <label>Мін. R/R</label>
+          <input type="number" [(ngModel)]="localSettings.minRR" step="0.1" class="highlight-input">
+        </div>
         <div class="input-block">
           <label>Мін. Лікв. ($)</label>
-          <input type="number" step="1000" [(ngModel)]="localSettings.minLiquidation">
+          <input type="number" [(ngModel)]="localSettings.minLiquidation" step="1000">
         </div>
-      }
-    </div>
-
-    <div class="settings-group">
-      <div class="input-block">
-        <label class="pro-label">Мін. R/R</label>
-        <input type="number" step="0.5" [(ngModel)]="localSettings.minRR" class="pro-input">
-      </div>
-
-      <div class="checkbox-group">
-        <label class="check-container long-check">
-          <input type="checkbox" [(ngModel)]="localSettings.showLong">
-          <span class="check-text">📈 LONG</span>
-        </label>
-        <label class="check-container short-check">
-          <input type="checkbox" [(ngModel)]="localSettings.showShort">
-          <span class="check-text">📉 SHORT</span>
-        </label>
-      </div>
-
-      <div  class="settings-group">
-        <label class="checkbox-label pro-feature">
-          <input type="checkbox" [(ngModel)]="localSettings.useDivergence" (change)="apply()">
-          AO Divergence 💎
-        </label>
-      </div>
-
-      <div class="checkbox-group">
-        <label>
-          <input type="checkbox" [(ngModel)]="localSettings.soundEnabled">
-          🔊 Звук
-        </label>
-        <label>
-          <input type="checkbox" [(ngModel)]="localSettings.holdStale">
-          👻 Привиди
-        </label>
       </div>
     </div>
 
-    <button class="apply-btn" (click)="apply()">ЗАСТОСУВАТИ</button>
+    <div class="settings-section">
+      <h3 class="section-title">⚙️ Стратегія & Візуал</h3>
+      <div class="strategy-toggles">
+        <label class="toggle-card" [class.active]="localSettings.useDivergence">
+          <input type="checkbox" [(ngModel)]="localSettings.useDivergence">
+          <div class="toggle-info">
+            <span class="icon">💎</span>
+            <span class="name">AO Divergence</span>
+          </div>
+        </label>
+
+        <div class="direction-toggles">
+          <label class="dir-btn long" [class.active]="localSettings.showLong">
+            <input type="checkbox" [(ngModel)]="localSettings.showLong"> 📈 LONG
+          </label>
+          <label class="dir-btn short" [class.active]="localSettings.showShort">
+            <input type="checkbox" [(ngModel)]="localSettings.showShort"> 📉 SHORT
+          </label>
+        </div>
+      </div>
+
+      <div class="misc-settings">
+        <label class="simple-check">
+          <input type="checkbox" [(ngModel)]="localSettings.soundEnabled"> 🔊 Звукові сповіщення
+        </label>
+        <label class="simple-check">
+          <input type="checkbox" [(ngModel)]="localSettings.holdStale"> 👻 Показувати "Привидів"
+        </label>
+      </div>
+    </div>
   </div>
 </div>

@@ -161,26 +161,35 @@ export class App implements OnInit {
     const kline = data;
     const key = `${kline.symbol}_${tf}`;
 
+    // 1. Відстежуємо Paper Trading
     const isHistoryUpdated = this.tracker.processTick(kline, this.lastSignalsHistory);
     if (isHistoryUpdated) {
       this.storage.saveHistory(this.lastSignalsHistory);
       this.updateUI();
     }
 
+    // 2. Обробка закриття свічки
     if (kline.isClosed) {
-      const activeSignal = this.activeSignals.get(key);
-      if (activeSignal) {
-        this.addSignalToHistory(kline, activeSignal, tf);
+      // ✅ ФІКС "ПРИВИДІВ": Примусово перевіряємо фінальний стан свічки.
+      // Якщо в останню секунду патерн зламався, цей виклик видалить його з activeSignals.
+      this.processTick(kline, tf, key);
+
+      const validFinalSignal = this.activeSignals.get(key);
+      // Зберігаємо в історію тільки якщо патерн ДІЙСНО підтвердився по закриттю
+      if (validFinalSignal) {
+        this.addSignalToHistory(kline, validFinalSignal, tf);
       }
+
       this.updateKlineHistory(key, kline);
       this.updateVolumeAverage(key, kline.volume!);
       this.activeSignals.delete(key);
       this.updateUI();
-    } else {
+    }
+    // 3. Аналіз поточного Тіка
+    else {
       this.processTick(kline, tf, key);
     }
   }
-
   private getTfMs(tf: string): number {
     const value = parseInt(tf);
     if (tf.includes('m')) return value * 60 * 1000;
@@ -196,8 +205,9 @@ export class App implements OnInit {
     const avgVol = this.volumeAverages.get(key) || kline.volume!;
     let volMult = kline.volume! / avgVol;
 
-    // ✅ РОЗУМНА ПРОЕКЦІЯ ОБ'ЄМУ (Тільки для скальп-ТФ)
-    if (['1m', '3m', '5m', '15m'].includes(tf)) {
+    // ✅ ФІКС "ЗНИКАЮЧИХ УГОД": Проектуємо об'єм ТІЛЬКИ якщо свічка ще відкрита!
+    // Якщо свічка закрилась (isClosed: true), бот бере РЕАЛЬНИЙ фінальний об'єм.
+    if (!kline.isClosed && ['1m', '3m', '5m', '15m'].includes(tf)) {
       const tfMs = this.getTfMs(tf);
       // Захист: якщо openTime ще немає (глюк біржі), беремо 1
       const timeElapsed = kline.openTime ? (Date.now() - kline.openTime) : tfMs;
@@ -219,12 +229,12 @@ export class App implements OnInit {
         this.playAlertSound();
       }
     } else {
+      // Якщо на фінальному тіку патерн зламався або об'єм не дотягнув - видаляємо з активних!
       this.activeSignals.delete(key);
     }
 
     this.updateUI();
   }
-
   // --- ЛОГІКА СИГНАЛІВ ТА ПАТЕРНІВ ---
 
   private detectTradeSignal(kline: any, volMult: number, ctx: PatternContext, history: any[], tf: string): TradeSignal | null {
@@ -294,6 +304,7 @@ export class App implements OnInit {
     const lookback = history.slice(-500);
     const levelData = this.findTrueLevel(lookback, type === 'LONG' ? 'RESISTANCE' : 'SUPPORT', entryPrice, tickSize);
     // ✅ РОЗУМНА ЛОГІКА ТЕЙК ПРОФІТУ (З лімітами)
+// ✅ РОЗУМНА ЛОГІКА ТЕЙК ПРОФІТУ (З лімітами)
     let tpPrice = levelData.price;
     const minRR = this.settings.minRR > 0 ? this.settings.minRR : 1.5;
     const maxRR = 5.0; // Максимальний дозволений Тейк
@@ -301,7 +312,16 @@ export class App implements OnInit {
     const requiredReward = effectiveRiskForTP * minRR;
     const maxAllowedReward = effectiveRiskForTP * maxRR;
 
-    let naturalReward = Math.abs(tpPrice - entryPrice);
+    // ✅ ФІКС МІНУСОВОГО ТЕЙКУ:
+    // Ширина зони об'єму (zoneMin) може випадково "затекти" нижче нашої точки входу.
+    // Жорстко перевіряємо напрямок, щоб Тейк завжди був у плюсі!
+    if (type === 'LONG' && tpPrice <= entryPrice) {
+      tpPrice = entryPrice + requiredReward; // Примусовий мат. тейк вгору
+    } else if (type === 'SHORT' && tpPrice >= entryPrice) {
+      tpPrice = entryPrice - requiredReward; // Примусовий мат. тейк вниз
+    }
+
+    let naturalReward = Math.abs(tpPrice - entryPrice); // Тепер ця відстань математично безпечна
 
     // 1. Перевірка на занадто близький рівень
     if (naturalReward < requiredReward) {
@@ -491,7 +511,7 @@ export class App implements OnInit {
 
     this.lastSignalsHistory.unshift({
       id: Date.now() + Math.random(),
-      time: new Date().toLocaleTimeString(),
+      time: kline.openTime ? new Date(kline.openTime).toLocaleTimeString() : new Date().toLocaleTimeString(),
       symbol: kline.symbol,
       timeframe: tf,
       type: sig.type,

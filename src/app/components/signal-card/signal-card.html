@@ -4,11 +4,18 @@
 
   <div class="card-header">
     <div class="pair-info">
+      <div class="tf-badge" [attr.data-tf]="sig.timeframe">{{ sig.timeframe }}</div>
       <a [href]="getBinanceLink()" target="_blank" class="symbol-link">
         {{ sig.symbol }} ↗
       </a>
-      <div class="pattern-badge">{{ sig.pattern }} Pattern</div>
     </div>
+    <div class="lvl-strength" [title]="'Сила рівня: ' + sig.lvlStrength">
+      🏰 {{ sig.lvlStrength | number:'1.1-1' }}
+    </div>
+  </div>
+
+  <div class="pattern-row">
+    <div class="pattern-badge">{{ sig.pattern }}</div>
     <div class="side-badge" [style.color]="sig.type === 'LONG' ? '#0ecb81' : '#f6465d'">
       {{ sig.type }}
     </div>
@@ -23,8 +30,12 @@
       <div class="stat-label">Об'єм</div>
       <div class="stat-value">x{{ sig.volumeMultiplier | number:'1.1-1' }}</div>
     </div>
+    <div class="stat-box">
+      <div class="stat-label">Swing</div>
+      <div class="stat-value">{{ sig.swingStrength | number:'1.2-2' }}%</div>
+    </div>
     <div class="stat-box" [class.high-liq]="sig.liqAmount > 5000">
-      <div class="stat-label">Ліквідації</div>
+      <div class="stat-label">Лікв.</div>
       <div class="stat-value">${{ sig.liqAmount | number:'1.0-0' }}</div>
     </div>
   </div>

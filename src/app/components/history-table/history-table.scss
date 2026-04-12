@@ -1,209 +1,66 @@
-.history-container {
-  background: #1e2329;
-  border-radius: 12px;
-  border: 1px solid #333;
-  overflow: hidden;
-
-  .history-header {
-    padding: 15px 20px;
-    background: #2b2f36;
-    border-bottom: 1px solid #333;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    h3 {
-      color: #848e9c;
-      margin: 0;
-      font-size: 16px;
-    }
-
-    .clear-btn {
-      background: transparent;
-      color: #f6465d;
-      border: 1px solid rgba(246, 70, 93, 0.3);
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: bold;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-
-      &:hover {
-        background: rgba(246, 70, 93, 0.1);
-        border-color: #f6465d;
-      }
-
-      &:active {
-        transform: scale(0.95);
-      }
-    }
-  }
-
-  .table-wrapper {
-    overflow-x: auto;
-  }
-}
-
 .history-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
-  white-space: nowrap;
 
-  thead {
-    background: rgba(0, 0, 0, 0.2);
-
-    tr {
-      color: #848e9c;
-      text-align: left;
-      border-bottom: 1px solid #333;
-    }
+  th {
+    background: #2b3139;
+    color: #848e9c;
+    padding: 12px 8px;
+    text-align: left;
+    font-weight: 500;
+    border-bottom: 1px solid #474d57;
   }
 
-  th, td {
-    padding: 12px 16px;
+  td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #2b3139;
+    color: #eaecef;
   }
 
-  tbody tr {
-    border-bottom: 1px solid #2b2f36;
+  // Специфічні стилі для ТФ
+  .tf-tag {
+    background: #1e2329;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    color: #f3ba2f;
+    border: 1px solid #474d57;
 
-    &:hover {
-      background: rgba(255, 255, 255, 0.03);
-    }
+    &[data-tf="15m"] { color: #0ecb81; border-color: #0ecb81; }
+    &[data-tf="1h"] { color: #3b82f6; border-color: #3b82f6; }
   }
 
-  .time-cell {
-    color: #666;
-    font-family: monospace;
+  .metrics-wrapper {
+    display: flex;
+    gap: 4px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 11px;
+    white-space: nowrap;
+
+    .divider { color: #444; }
+    .lvl-val { font-weight: bold; }
   }
 
   .pair-link {
     color: #f3ba2f;
     text-decoration: none;
-    font-weight: bold;
-    font-size: 14px;
-
-    &:hover {
-      text-decoration: underline;
-    }
+    font-weight: 500;
+    &:hover { text-decoration: underline; }
   }
 
-  .pattern-cell {
-    color: #aaa;
-    font-size: 12px;
-    background: #2b2f36;
-    padding: 2px 6px;
+  .badge {
+    padding: 4px 8px;
     border-radius: 4px;
-  }
-
-  .side-cell {
+    font-size: 11px;
     font-weight: bold;
-  }
+    display: inline-block;
 
-  .entry-cell {
-    color: #fff;
-    font-weight: bold;
-    font-family: monospace;
-  }
-
-  .sl-cell {
-    color: #f6465d;
-    opacity: 0.9;
-    font-family: monospace;
-  }
-
-  .tp-cell {
-    color: #0ecb81;
-    opacity: 0.9;
-    font-family: monospace;
-  }
-
-  .rr-cell {
-    font-weight: bold;
-    font-family: monospace;
-    text-align: center;
-  }
-
-  .liq-cell {
-    color: #f6465d;
-    font-weight: bold;
-  }
-
-  .text-right {
-    text-align: right;
-  }
-
-  .text-center {
-    text-align: center;
-  }
-
-  .empty-cell {
-    padding: 40px;
-    text-align: center;
-    color: #666;
-    font-style: italic;
-    background: #12161c;
-  }
-
-  .metrics-cell {
-    .metrics-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-family: monospace;
-      font-size: 11px;
-    }
-    .vol-val { font-weight: bold; }
-    .divider { color: #444; }
-    .swing-val { font-weight: 500; }
-  }
-
-  // ✅ СТИЛІ ДЛЯ СТАТУСІВ УГОДИ (БЕЙДЖІ)
-  .status-cell {
-    text-align: center;
-
-    .badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-
-      &.pending {
-        background: rgba(255, 255, 255, 0.05);
-        color: #848e9c;
-      }
-
-      &.opened {
-        background: rgba(243, 186, 47, 0.15);
-        color: #f3ba2f;
-        border: 1px solid rgba(243, 186, 47, 0.5);
-      }
-
-      &.cancelled {
-        background: rgba(0, 0, 0, 0.3);
-        color: #555;
-        text-decoration: line-through;
-      }
-
-      &.tp {
-        background: rgba(14, 203, 129, 0.15);
-        color: #0ecb81;
-        border: 1px solid rgba(14, 203, 129, 0.5);
-        box-shadow: 0 0 10px rgba(14, 203, 129, 0.2);
-      }
-
-      &.sl {
-        background: rgba(246, 70, 93, 0.15);
-        color: #f6465d;
-        border: 1px solid rgba(246, 70, 93, 0.5);
-      }
-    }
+    &.pending { background: rgba(132, 142, 156, 0.1); color: #848e9c; }
+    &.opened { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+    &.tp { background: rgba(14, 203, 129, 0.2); color: #0ecb81; }
+    &.sl { background: rgba(246, 70, 93, 0.2); color: #f6465d; }
+    &.cancelled { background: rgba(71, 77, 87, 0.2); color: #474d57; }
   }
 }

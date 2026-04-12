@@ -60,6 +60,7 @@ export interface ScannerSettings {
   holdStale: boolean;
   showLong: boolean;  // Додано
   showShort: boolean; // Додано
+  useDivergence: boolean; // ✅ ДОДАНО ДЛЯ ПРЕМІУМ ФІЧІ
 }
 export interface PatternContext {
   kline: any;          // Поточна свічка (live)

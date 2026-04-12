@@ -1,6 +1,7 @@
 <div class="history-container">
   <div class="history-header">
     <h3>📜 Журнал сигналів (Paper Trading)</h3>
+    <p>{{history.length}}</p>
     @if (history.length > 0) {
       <button class="clear-btn" (click)="clearHistory.emit()">
         🗑️ Очистити історію

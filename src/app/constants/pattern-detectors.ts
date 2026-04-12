@@ -4,11 +4,12 @@ export type DetectorFn = (ctx: PatternContext) => string | null;
 
 /**
  * --- HELPERS ---
- * Допоміжні функції, щоб не дублювати математику в кожному патерні
  */
 const getBody = (k: any) => Math.abs(k.close - k.open);
 const getUpperShadow = (k: any) => k.high - Math.max(k.open, k.close);
 const getLowerShadow = (k: any) => Math.min(k.open, k.close) - k.low;
+// ✅ Додали розмір всієї свічки від краю до краю
+const getCandleSize = (k: any) => k.high - k.low;
 const isBullish = (k: any) => k.close > k.open;
 const isBearish = (k: any) => k.close < k.open;
 
@@ -16,35 +17,41 @@ const isBearish = (k: any) => k.close < k.open;
  * --- LONG PATTERNS ---
  */
 
-// 1. Молот (Hammer) - класика
+// 1. Молот (Hammer)
 export const hammerDetector: DetectorFn = ({ kline }) => {
-  const body = getBody(kline);
+  const size = getCandleSize(kline);
+  if (size === 0) return null;
   const lowerShadow = getLowerShadow(kline);
   const upperShadow = getUpperShadow(kline);
-  return (lowerShadow > body * 2 && upperShadow < body * 0.5) ? 'Hammer' : null;
+  // Нижня тінь > 50% свічки, верхня тінь < 20%
+  return (lowerShadow >= size * 0.50 && upperShadow <= size * 0.20) ? 'Hammer' : null;
 };
 
-// 2. Пін-бар (PinBar) - професійний молот з дуже довгою тінню
+// 2. Пін-бар (Справжній!)
 export const pinBarLONG: DetectorFn = ({ kline }) => {
-  const body = getBody(kline);
+  const size = getCandleSize(kline);
+  if (size === 0) return null;
   const lowerShadow = getLowerShadow(kline);
-  return (lowerShadow > body * 3) ? 'PinBar' : null;
+  const upperShadow = getUpperShadow(kline);
+  // Жорстко: Нижня тінь > 65% свічки, закриття під самий хай (верхня тінь < 15%)
+  return (lowerShadow >= size * 0.65 && upperShadow <= size * 0.15) ? 'PinBar' : null;
 };
 
-// 3. Поглинання (Engulfing)
+// 3. Поглинання
 export const bullishEngulfing: DetectorFn = ({ kline, lastCandle }) => {
   const body = getBody(kline);
   const prevBody = getBody(lastCandle);
-  return (isBullish(kline) && isBearish(lastCandle) && body > prevBody * 1.1) ? 'Engulfing' : null;
+  // Має перекрити тіло і закритися ВИЩЕ відкриття попередньої
+  return (isBullish(kline) && isBearish(lastCandle) && body > prevBody && kline.close > lastCandle.open) ? 'Engulfing' : null;
 };
 
-// 4. Поглинання всього діапазону (Absorption) - коли тіло перекриває всю попередню свічку з тінями
+// 4. Поглинання всього діапазону (Absorption)
 export const absorptionLONG: DetectorFn = ({ kline, lastCandle }) => {
   const isStrong = kline.close > lastCandle.high && kline.open < lastCandle.low;
   return (isStrong && isBullish(kline)) ? 'Absorption' : null;
 };
 
-// 5. Рельси (Railway Tracks) - дві великі зустрічні свічки
+// 5. Рельси
 export const railsLONG: DetectorFn = ({ kline, lastCandle, avgBody }) => {
   const body = getBody(kline);
   const prevBody = getBody(lastCandle);
@@ -53,12 +60,16 @@ export const railsLONG: DetectorFn = ({ kline, lastCandle, avgBody }) => {
   return (isBullish(kline) && isBearish(lastCandle) && areLarge && areEqual) ? 'Rails' : null;
 };
 
-// 6. Моментум (Momentum) - аномально велике тіло
+// 6. Моментум
 export const bullishMomentum: DetectorFn = ({ kline, avgBody }) => {
-  return (isBullish(kline) && getBody(kline) > avgBody * 2.5) ? 'Momentum' : null;
+  const body = getBody(kline);
+  const size = getCandleSize(kline);
+  if (size === 0) return null;
+  // Свічка велика І тіло займає > 80% її розміру (немає великих тіней)
+  return (isBullish(kline) && body > avgBody * 2.0 && body >= size * 0.8) ? 'Momentum' : null;
 };
 
-// 7. Внутрішній бар (Inside Bar) - ознака накопичення
+// 7. Внутрішній бар
 export const insideBar: DetectorFn = ({ kline, lastCandle }) => {
   return (kline.high < lastCandle.high && kline.low > lastCandle.low) ? 'Inside' : null;
 };
@@ -68,35 +79,38 @@ export const insideBar: DetectorFn = ({ kline, lastCandle }) => {
  * --- SHORT PATTERNS ---
  */
 
-// 1. Падаюча зоря (Shooting Star)
+// 1. Падаюча зоря
 export const shootingStarDetector: DetectorFn = ({ kline }) => {
-  const body = getBody(kline);
+  const size = getCandleSize(kline);
+  if (size === 0) return null;
   const lowerShadow = getLowerShadow(kline);
   const upperShadow = getUpperShadow(kline);
-  return (upperShadow > body * 2 && lowerShadow < body * 0.5) ? 'Star' : null;
+  return (upperShadow >= size * 0.50 && lowerShadow <= size * 0.20) ? 'Star' : null;
 };
 
-// 2. Пін-бар (Short PinBar)
+// 2. Пін-бар (Справжній!)
 export const pinBarSHORT: DetectorFn = ({ kline }) => {
-  const body = getBody(kline);
+  const size = getCandleSize(kline);
+  if (size === 0) return null;
+  const lowerShadow = getLowerShadow(kline);
   const upperShadow = getUpperShadow(kline);
-  return (upperShadow > body * 3) ? 'PinBar' : null;
+  return (upperShadow >= size * 0.65 && lowerShadow <= size * 0.15) ? 'PinBar' : null;
 };
 
 // 3. Ведмеже поглинання
 export const bearishEngulfing: DetectorFn = ({ kline, lastCandle }) => {
   const body = getBody(kline);
   const prevBody = getBody(lastCandle);
-  return (isBearish(kline) && isBullish(lastCandle) && body > prevBody * 1.1) ? 'Engulfing' : null;
+  return (isBearish(kline) && isBullish(lastCandle) && body > prevBody && kline.close < lastCandle.open) ? 'Engulfing' : null;
 };
 
-// 4. Ведмеже поглинання всього діапазону (Absorption)
+// 4. Ведмеже поглинання всього діапазону
 export const absorptionSHORT: DetectorFn = ({ kline, lastCandle }) => {
   const isStrong = kline.close < lastCandle.low && kline.open > lastCandle.high;
   return (isStrong && isBearish(kline)) ? 'Absorption' : null;
 };
 
-// 5. Рельси (Railway Tracks) SHORT
+// 5. Рельси SHORT
 export const railsSHORT: DetectorFn = ({ kline, lastCandle, avgBody }) => {
   const body = getBody(kline);
   const prevBody = getBody(lastCandle);
@@ -107,9 +121,11 @@ export const railsSHORT: DetectorFn = ({ kline, lastCandle, avgBody }) => {
 
 // 6. Ведмежий Моментум
 export const bearishMomentum: DetectorFn = ({ kline, avgBody }) => {
-  return (isBearish(kline) && getBody(kline) > avgBody * 2.5) ? 'Momentum' : null;
+  const body = getBody(kline);
+  const size = getCandleSize(kline);
+  if (size === 0) return null;
+  return (isBearish(kline) && body > avgBody * 2.0 && body >= size * 0.8) ? 'Momentum' : null;
 };
-
 
 /**
  * Реєстр патернів для зручного перебору

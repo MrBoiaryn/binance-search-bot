@@ -292,8 +292,7 @@ export class App implements OnInit {
 
     // Пошук об'ємного рівня
     const lookback = history.slice(-500);
-    const levelData = this.findTrueLevel(lookback, type === 'LONG' ? 'RESISTANCE' : 'SUPPORT', entryPrice);
-
+    const levelData = this.findTrueLevel(lookback, type === 'LONG' ? 'RESISTANCE' : 'SUPPORT', entryPrice, tickSize);
     // ✅ РОЗУМНА ЛОГІКА ТЕЙК ПРОФІТУ (З лімітами)
     let tpPrice = levelData.price;
     const minRR = this.settings.minRR > 0 ? this.settings.minRR : 1.5;
@@ -341,34 +340,94 @@ export class App implements OnInit {
 
   // --- МАТЕМАТИЧНІ УТИЛІТИ ---
 
-  private findTrueLevel(history: any[], type: 'SUPPORT' | 'RESISTANCE', currentPrice: number): { price: number, strength: number } {
+  private findTrueLevel(history: any[], type: 'SUPPORT' | 'RESISTANCE', currentPrice: number, tickSize: number): { price: number, strength: number, zoneMin: number, zoneMax: number } {
+    if (history.length === 0) return { price: currentPrice, strength: 0, zoneMin: currentPrice, zoneMax: currentPrice };
+
     const minP = Math.min(...history.map(k => k.low));
     const maxP = Math.max(...history.map(k => k.high));
-    const binSize = (maxP - minP) / 50;
-    const bins = new Array(50).fill(0);
 
+    // Захист від жорсткого флету (ділення на нуль)
+    if (maxP === minP) return { price: currentPrice, strength: 0, zoneMin: currentPrice, zoneMax: currentPrice };
+
+    // Створюємо 100 кошиків для високої точності (мінімальний розмір - 2 тіки)
+    const binSize = Math.max((maxP - minP) / 100, tickSize * 2);
+    const actualBinCount = Math.ceil((maxP - minP) / binSize) + 1;
+    const bins = new Array(actualBinCount).fill(0);
+
+    // 1. Будуємо Профіль Об'єму (Volume Profile)
+    let totalVolume = 0;
     history.forEach(k => {
       const s = Math.floor((k.low - minP) / binSize);
       const e = Math.floor((k.high - minP) / binSize);
-      for (let i = s; i <= e; i++) if (i >= 0 && i < 50) bins[i]++;
+      const span = (e - s) + 1;
+      const volPerBin = k.volume / span; // Розмазуємо об'єм свічки по всьому її хвосту
+
+      for (let i = s; i <= e; i++) {
+        if (i >= 0 && i < actualBinCount) {
+          bins[i] += volPerBin;
+          totalVolume += volPerBin;
+        }
+      }
     });
 
-    const avgWeight = bins.reduce((a, b) => a + b, 0) / 50;
-    let bestI = -1, maxW = 0;
+    const avgVolumePerBin = totalVolume / actualBinCount;
 
-    for (let i = 0; i < 50; i++) {
-      const p = minP + (i * binSize);
-      if (type === 'RESISTANCE' && p <= currentPrice) continue;
-      if (type === 'SUPPORT' && p >= currentPrice) continue;
-      if (bins[i] > maxW) { maxW = bins[i]; bestI = i; }
+    // 2. Згладжування масиву (щоб об'єднати дрібні рівні в масивні зони)
+    const smoothedBins = [...bins];
+    for (let i = 1; i < actualBinCount - 1; i++) {
+      smoothedBins[i] = (bins[i - 1] + bins[i] * 2 + bins[i + 1]) / 4;
     }
 
-    const strength = maxW / (avgWeight || 1);
-    const price = bestI === -1
-      ? (type === 'RESISTANCE' ? maxP : minP)
-      : (type === 'RESISTANCE' ? minP + (bestI * binSize) : minP + (bestI * binSize) + binSize);
+    // 3. Шукаємо ПІКИ (гори ліквідності)
+    let bestPeakIndex = -1;
+    let maxWeight = 0;
 
-    return { price, strength };
+    for (let i = 1; i < actualBinCount - 1; i++) {
+      const priceAtBin = minP + (i * binSize);
+
+      // Відсіюємо рівні, які знаходяться позаду нас (ми шукаємо тільки мету попереду)
+      if (type === 'RESISTANCE' && priceAtBin <= currentPrice) continue;
+      if (type === 'SUPPORT' && priceAtBin >= currentPrice) continue;
+
+      // Локальний максимум
+      if (smoothedBins[i] > smoothedBins[i - 1] && smoothedBins[i] > smoothedBins[i + 1]) {
+        if (smoothedBins[i] > maxWeight) {
+          maxWeight = smoothedBins[i];
+          bestPeakIndex = i;
+        }
+      }
+    }
+
+    // 4. "Чисте небо" (пробій ATH або ATL)
+    if (bestPeakIndex === -1) {
+      return { price: type === 'RESISTANCE' ? maxP : minP, strength: 0, zoneMin: 0, zoneMax: 0 };
+    }
+
+    // 5. Визначаємо КОРИДОР (розширюємо межі від піку, поки об'єм не впаде на 50%)
+    let leftBound = bestPeakIndex;
+    while (leftBound > 0 && smoothedBins[leftBound - 1] > maxWeight * 0.5) {
+      leftBound--;
+    }
+
+    let rightBound = bestPeakIndex;
+    while (rightBound < actualBinCount - 1 && smoothedBins[rightBound + 1] > maxWeight * 0.5) {
+      rightBound++;
+    }
+
+    const zoneMin = minP + (leftBound * binSize);
+    const zoneMax = minP + (rightBound * binSize) + binSize;
+    const strength = maxWeight / (avgVolumePerBin || 1);
+
+    // 6. БЕЗПЕЧНИЙ ТЕЙК-ПРОФІТ
+    // Лонг вдариться в нижню межу зони. Шорт вдариться у верхню.
+    const targetPrice = type === 'RESISTANCE' ? zoneMin : zoneMax;
+
+    return {
+      price: targetPrice,
+      strength: strength,
+      zoneMin: zoneMin,
+      zoneMax: zoneMax
+    };
   }
 
   private checkAODivergence(history: any[], type: 'LONG' | 'SHORT'): boolean {

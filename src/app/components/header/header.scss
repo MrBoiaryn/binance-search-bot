@@ -150,3 +150,10 @@
     &:hover { background: #f0b90b; box-shadow: 0 0 15px rgba(243, 186, 47, 0.3); }
   }
 }
+
+.trailing-input {
+  border-color: #f3ba2f !important; // Золотистий колір Binance для Pro-налаштування
+  &:focus {
+    box-shadow: 0 0 5px rgba(243, 186, 47, 0.4);
+  }
+}

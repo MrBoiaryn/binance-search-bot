@@ -51,6 +51,7 @@ export class App implements OnInit, OnDestroy {
     showLong: true,
     showShort: true,
     useDivergence: false,
+    trailingBars: 5, // 0 - вимкнено, 5 - стандарт
   };
 
   constructor(
@@ -186,40 +187,68 @@ export class App implements OnInit, OnDestroy {
 
   // --- ЯДРО АНАЛІЗУ ---
 
+// App.ts -> analyzeData
+
   private analyzeData(data: any, tf: string) {
+    // Пропускаємо, якщо прийшли дані про ліквідацію (якщо ти їх не обробляєш окремо)
     if (data.type === 'liquidation') return;
 
     const kline = data;
-    const key = `${kline.symbol}_${tf}`;
+    const symbol = kline.symbol.toUpperCase();
+    const key = `${symbol}_${tf}`;
 
-    // 1. Відстежуємо Paper Trading
-    const isHistoryUpdated = this.tracker.processTick({ ...kline, tf }, this.lastSignalsHistory);
+    // 1. ОТРИМУЄМО ДАНІ ДЛЯ АНАЛІЗУ
+    const history = this.klineHistory.get(key) || [];
+    const avgVol = this.volumeAverages.get(key) || kline.volume!;
+    const tickSize = this.symbolTickSizes.get(symbol) || 0.0001;
 
+    // 2. РАХУЄМО АДАПТИВНИЙ ОБ'ЄМ (з проекцією після 50% часу свічки)
+    const volMult = this.calculateVolMult(kline, tf, avgVol);
+
+    // 3. СУПРОВІД ВІДКРИТИХ ПОЗИЦІЙ (Trailing Stop та перевірка SL/TP)
+    // Передаємо: поточну свічку, всю історію угод, історію свічок монети, параметр трейлінгу та тік-сайз
+    const isHistoryUpdated = this.tracker.processTick(
+      { ...kline, tf },
+      this.lastSignalsHistory,
+      history,
+      this.settings.trailingBars,
+      tickSize
+    );
+
+    // Якщо трекер щось змінив (відкрив угоду, підтягнув стоп або закрив по TP/SL) — оновлюємо сховище та UI
     if (isHistoryUpdated) {
       this.storage.saveHistory(this.lastSignalsHistory);
       this.uiUpdate$.next();
     }
 
-    // 2. Обробка закриття свічки
+    // 4. ОБРОБКА ЗАКРИТТЯ СВІЧКИ ТА ПОШУК НОВИХ СИГНАЛІВ
     if (kline.isClosed) {
+      // Фінальний аналіз закритої свічки
       this.processTick(kline, tf, key);
 
+      // Якщо за результатами аналізу з'явився валідний сигнал — додаємо його в журнал
       const validFinalSignal = this.activeSignals.get(key);
       if (validFinalSignal) {
         this.addSignalToHistory(kline, validFinalSignal, tf);
       }
 
+      // Оновлюємо кеш історії свічок (додаємо нову закриту свічку)
       this.updateKlineHistory(key, kline);
+
+      // Оновлюємо середній об'єм (Moving Average об'єму)
       this.updateVolumeAverage(key, kline.volume!);
+
+      // Очищуємо тимчасовий активний сигнал, бо свічка закрита
       this.activeSignals.delete(key);
       this.uiUpdate$.next();
     }
-    // 3. Аналіз поточного Тіка
+
+    // 5. АНАЛІЗ ПОТОЧНОГО ТІКА (поки свічка ще формується)
     else {
+      // Шукаємо патерни в реальному часі
       this.processTick(kline, tf, key);
     }
   }
-
   private processTick(kline: any, tf: string, key: string) {
     const history = this.klineHistory.get(key) || [];
     if (history.length < 50) return;

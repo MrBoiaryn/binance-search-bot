@@ -64,3 +64,61 @@
     &.cancelled { background: rgba(71, 77, 87, 0.2); color: #474d57; }
   }
 }
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 20px;
+  background: #1e2329;
+  border-bottom: 1px solid #2b3139;
+
+  .header-left { display: flex; align-items: center; gap: 10px; }
+
+  .balance-stats {
+    background: rgba(43, 49, 57, 0.5);
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid #474d57;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+
+    .stat-label { color: #848e9c; font-size: 12px; }
+    .stat-value { font-size: 18px; font-weight: bold; font-family: 'Roboto Mono', monospace; }
+    .stat-diff { font-size: 12px; font-weight: 500; }
+  }
+}
+
+.price-stack {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+
+  .old-price {
+    font-size: 10px;
+    color: #848e9c;
+    text-decoration: line-through;
+    opacity: 0.6;
+  }
+
+  .current-price {
+    font-size: 13px;
+    font-weight: 500;
+
+    &.trailed {
+      color: #f3ba2f; // Жовтий, якщо стоп рухався
+    }
+  }
+
+  .percent-dist {
+    font-size: 10px;
+    color: #848e9c;
+
+    &.tp-dist { color: #0ecb81; } // Зелений для тейка
+  }
+}
+
+.sl-cell, .tp-cell {
+  min-width: 100px;
+}

@@ -53,6 +53,7 @@ export interface HistoricalLog {
   swingStrength: number; // Додано
   timeframe: string;    // ✅ Додано
   lvlStrength: number;  // ✅ Додано
+  initialSl?: number; // ✅ ДОДАЙ ЦЕЙ РЯДОК (опціональне поле)
 }
 
 // НОВИЙ ІНТЕРФЕЙС НАЛАШТУВАНЬ
@@ -70,6 +71,7 @@ export interface ScannerSettings {
   showLong: boolean;
   showShort: boolean;
   useDivergence: boolean;
+  trailingBars: number;
 }
 
 export interface PatternContext {

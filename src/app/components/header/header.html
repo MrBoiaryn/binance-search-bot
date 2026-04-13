@@ -61,7 +61,11 @@
       <div class="params-row">
         <div class="input-block">
           <label>Swing (%)</label>
-          <input type="number" [(ngModel)]="localSettings.minSwingDeviation">
+          <input type="number" [(ngModel)]="localSettings.minSwingDeviation" step="0.1">
+        </div>
+        <div class="input-block">
+          <label>Trailing (Бари)</label>
+          <input type="number" [(ngModel)]="localSettings.trailingBars" min="0" placeholder="0 - off" class="trailing-input" step="1">
         </div>
       </div>
     </div>

@@ -227,7 +227,7 @@ export class App implements OnInit, OnDestroy {
     const avgVol = this.volumeAverages.get(key) || kline.volume!;
     
     // ✅ ВИДАЛЕНО VOLUME PROJECTION: беремо тільки реальний об'єм свічки на даний момент
-    const volMult = kline.volume! / avgVol;
+    const volMult = this.calculateVolMult(kline, tf, avgVol);
 
     const ctx = this.createPatternContext(kline, history);
     const signal = this.detectTradeSignal(kline, volMult, ctx, history, tf);
@@ -297,9 +297,11 @@ export class App implements OnInit, OnDestroy {
       : this.roundToTick(kline.low - tickSize, tickSize);
 
     // 2. Перевірка натягу (відхилення від MA20)
-    const medianPrice = (kline.high + kline.low) / 2;
+    const typicalPrice = (kline.high + kline.low + kline.close) / 3;
+    // Рахуємо середню ціну (MA20)
     const avgPrice = history.slice(-20).reduce((acc, k) => acc + k.close, 0) / 20;
-    const maDeviation = Math.abs((medianPrice - avgPrice) / avgPrice) * 100;
+    // Swing Strength - це відхилення "центру" свічки від середньої
+    const maDeviation = Math.abs((typicalPrice - avgPrice) / avgPrice) * 100;
 
     if (maDeviation < this.settings.minSwingDeviation) return null;
 
@@ -518,6 +520,41 @@ export class App implements OnInit, OnDestroy {
   private roundToTick(price: number, tick: number): number {
     const p = Math.max(0, -Math.floor(Math.log10(tick)));
     return parseFloat((Math.round(price / tick) * tick).toFixed(p));
+  }
+
+  private getTfMs(tf: string): number {
+    const unit = tf.slice(-1);
+    const value = parseInt(tf);
+    switch (unit) {
+      case 'm': return value * 60 * 1000;
+      case 'h': return value * 60 * 60 * 1000;
+      case 'd': return value * 24 * 60 * 60 * 1000;
+      default: return 60 * 1000;
+    }
+  }
+
+  private calculateVolMult(kline: any, tf: string, avgVol: number): number {
+    if (!kline.openTime || avgVol === 0) return kline.volume / (avgVol || 1);
+
+    const now = Date.now();
+    const elapsed = now - kline.openTime;
+    const total = this.getTfMs(tf);
+
+    // Динамічний поріг: 50% від тривалості таймфрейму
+    const projectionThreshold = total / 2;
+
+    // Якщо свічка закрита або ми ще не пройшли "екватор" свічки — беремо факт
+    if (kline.isClosed || elapsed < projectionThreshold) {
+      return kline.volume / avgVol;
+    }
+
+    // Розраховуємо прогрес (Ratio) від 0.5 до 1.0
+    const ratio = Math.min(0.99, elapsed / total);
+
+    // Проектуємо фінальний об'єм на основі темпу
+    const projectedVol = kline.volume / ratio;
+
+    return projectedVol / avgVol;
   }
 
   // --- УПРАВЛІННЯ UI ТА ІСТОРІЄЮ ---

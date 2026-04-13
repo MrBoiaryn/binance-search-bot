@@ -11,7 +11,7 @@ export class PositionTrackerService {
     // ✅ ДОДАЄМО ФІЛЬТР ЗА ТАЙМФРЕЙМОМ (log.timeframe === kline.timeframe)
     const activeLogs = history.filter(log =>
       log.symbol === kline.symbol &&
-      log.timeframe === kline.tf && // Переконайся, що в kline є поле tf
+      log.timeframe === kline.tf && // ГАРАНТІЯ: ТФ має збігатися на 100%
       (log.status === 'PENDING' || log.status === 'OPENED')
     );
 

@@ -38,34 +38,59 @@
 
     <div class="settings-section">
       <h3 class="section-title">📊 Технічні параметри</h3>
+
       <div class="params-row">
-        <div class="input-block">
-          <label>Об'єм (x)</label>
-          <input type="number" [(ngModel)]="localSettings.volumeThreshold" step="0.1">
-        </div>
         <div class="input-block">
           <label>Swing (Бари)</label>
-          <input type="number" [(ngModel)]="localSettings.swingPeriod">
-        </div>
-      </div>
-      <div class="params-row">
-        <div class="input-block">
-          <label>Мін. R/R</label>
-          <input type="number" [(ngModel)]="localSettings.minRR" step="0.1" class="highlight-input">
-        </div>
-        <div class="input-block">
-          <label>Мін. Лікв. ($)</label>
-          <input type="number" [(ngModel)]="localSettings.minLiquidation" step="1000">
-        </div>
-      </div>
-      <div class="params-row">
-        <div class="input-block">
-          <label>Swing (%)</label>
-          <input type="number" [(ngModel)]="localSettings.minSwingDeviation" step="0.1">
+          <input type="number" [(ngModel)]="localSettings.swingPeriod" title="Глибина пошуку екстремумів">
         </div>
         <div class="input-block">
           <label>Trailing (Бари)</label>
-          <input type="number" [(ngModel)]="localSettings.trailingBars" min="0" placeholder="0 - off" class="trailing-input" step="1">
+          <input type="number" [(ngModel)]="localSettings.trailingBars">
+        </div>
+      </div>
+
+      <div class="params-row">
+        <div class="input-block">
+          <label>Об'єм Min (x)</label>
+          <input type="number" [(ngModel)]="localSettings.minVolMult" step="0.1">
+        </div>
+        <div class="input-block">
+          <label>Об'єм Max (x)</label>
+          <input type="number" [(ngModel)]="localSettings.maxVolMult" step="0.1">
+        </div>
+      </div>
+
+      <div class="params-row">
+        <div class="input-block">
+          <label>Swing Min (%)</label>
+          <input type="number" [(ngModel)]="localSettings.minSwing" step="0.1">
+        </div>
+        <div class="input-block">
+          <label>Swing Max (%)</label>
+          <input type="number" [(ngModel)]="localSettings.maxSwing" step="0.1">
+        </div>
+      </div>
+
+      <div class="params-row">
+        <div class="input-block">
+          <label>R/R Min</label>
+          <input type="number" [(ngModel)]="localSettings.minRR" step="0.1" title="Мінімальне співвідношення ризик/прибуток">
+        </div>
+        <div class="input-block">
+          <label>R/R Max</label>
+          <input type="number" [(ngModel)]="localSettings.maxRR" step="0.1" title="Максимальна жадібність (обмеження Тейка)">
+        </div>
+      </div>
+
+      <div class="params-row">
+        <div class="input-block">
+          <label>L Strength Min</label>
+          <input type="number" [(ngModel)]="localSettings.minLvlStrength" step="0.1">
+        </div>
+        <div class="input-block">
+          <label>Кластер (Max)</label>
+          <input type="number" [(ngModel)]="localSettings.maxClusterSize" step="1">
         </div>
       </div>
     </div>

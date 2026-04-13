@@ -24,4 +24,14 @@ export class HistoryTable {
       log.quoteAsset
     );
   }
+
+  get totalPnL(): number {
+    return this.history.reduce((acc, log) => acc + (log.pnl || 0), 0);
+  }
+
+// Допоміжний метод для розрахунку % відстані від входу (для SL/TP)
+  getPercent(price: number, target: number): number {
+    if (!price || !target) return 0;
+    return (Math.abs(target - price) / price) * 100;
+  }
 }

@@ -53,6 +53,7 @@ export interface HistoricalLog {
   swingStrength: number; // Додано
   timeframe: string;    // ✅ Додано
   lvlStrength: number;  // ✅ Додано
+  initialSl?: number; // ✅ ДОДАЙ ЦЕЙ РЯДОК (опціональне поле)
 }
 
 // НОВИЙ ІНТЕРФЕЙС НАЛАШТУВАНЬ
@@ -60,11 +61,26 @@ export interface HistoricalLog {
 export interface ScannerSettings {
   marketType: 'spot' | 'futures';
   timeframes: string[];
-  volumeThreshold: number;
-  swingPeriod: number;        // Це твої 10, 50, 100 свічок
-  minSwingDeviation: number;  // НОВЕ: Це мінімальний % відхилення (захист від флету)
-  minLiquidation: number;
-  minRR: number;
+
+  // --- ПАРАМЕТРИ ПЕРІОДУ ---
+  swingPeriod: number;      // Swing (Бари) - глибина пошуку рівня
+  trailingBars: number;     // Trailing (Бари)
+
+  // --- ДІАПАЗОНИ (MIN / MAX) ---
+  minVolMult: number;       // Об'єм Min
+  maxVolMult: number;       // Об'єм Max
+
+  minSwing: number;         // Swing % Min (відхилення від середньої)
+  maxSwing: number;         // Swing % Max (захист від перегріву)
+
+  minLvlStrength: number;   // Сила рівня L (тільки мінімум)
+
+  minRR: number;            // RR Min
+  maxRR: number;            // RR Max
+
+  maxClusterSize: number;   // Щільність (макс. однакових сигналів за хв)
+
+  // --- ВІЗУАЛ ТА ІНШЕ ---
   soundEnabled: boolean;
   holdStale: boolean;
   showLong: boolean;

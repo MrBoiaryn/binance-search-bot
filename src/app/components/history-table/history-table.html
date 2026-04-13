@@ -1,7 +1,20 @@
 <div class="history-container">
   <div class="history-header">
-    <h3>📜 Журнал сигналів (Multi-TF Analytics)</h3>
-    <p class="count-badge">{{history.length}}</p>
+    <div class="header-left">
+      <h3>📜 Журнал сигналів (Multi-TF Analytics)</h3>
+      <p class="count-badge">{{history.length}}</p>
+    </div>
+
+    <div class="balance-stats">
+      <span class="stat-label">Депозит:</span>
+      <span class="stat-value" [style.color]="totalPnL >= 0 ? '#0ecb81' : '#f6465d'">
+        {{ 100 + totalPnL | number:'1.2-2' }}%
+      </span>
+      <span class="stat-diff" [style.color]="totalPnL >= 0 ? '#0ecb81' : '#f6465d'">
+        ({{ totalPnL > 0 ? '+' : '' }}{{ totalPnL | number:'1.2-2' }}%)
+      </span>
+    </div>
+
     @if (history.length > 0) {
       <button class="clear-btn" (click)="clearHistory.emit()">
         🗑️ Очистити історію
@@ -18,10 +31,10 @@
         <th>Патерн</th>
         <th>Тип</th>
         <th>Вхід (Entry)</th>
-        <th>Stop Loss</th>
-        <th>Take Profit</th>
+        <th>Stop Loss (Trail)</th> <th>Take Profit</th>
         <th>R/R</th>
-        <th>Метрики (V/S/L)</th> <th class="text-center">Статус</th>
+        <th>Метрики (V/S/L)</th>
+        <th class="text-center">Статус</th>
         <th class="text-right">Лікв. ($)</th>
       </tr>
       </thead>
@@ -29,27 +42,38 @@
         @for (log of history; track log.id) {
           <tr>
             <td class="time-cell">{{log.time}}</td>
-
+            <td><span class="tf-tag" [attr.data-tf]="log.timeframe">{{log.timeframe}}</span></td>
             <td>
-              <span class="tf-tag" [attr.data-tf]="log.timeframe">
-                {{log.timeframe}}
-              </span>
-            </td>
-
-            <td>
-              <a [href]="getBinanceLink(log)" target="_blank" class="pair-link">
-                {{log.symbol}} ↗
-              </a>
+              <a [href]="getBinanceLink(log)" target="_blank" class="pair-link">{{log.symbol}} ↗</a>
             </td>
             <td class="pattern-cell">{{log.pattern}}</td>
             <td>
-              <span class="side-cell" [style.color]="log.type === 'LONG' ? '#0ecb81' : '#f6465d'">
-                {{log.type}}
-              </span>
+              <span class="side-cell" [style.color]="log.type === 'LONG' ? '#0ecb81' : '#f6465d'">{{log.type}}</span>
             </td>
             <td class="entry-cell">{{log.price | number:'1.2-6'}}</td>
-            <td class="sl-cell">{{log.sl | number:'1.2-6'}}</td>
-            <td class="tp-cell">{{log.tp | number:'1.2-6'}}</td>
+
+            <td class="sl-cell">
+              <div class="price-stack">
+                @if (log.initialSl && log.initialSl !== log.sl) {
+                  <span class="old-price">{{log.initialSl | number:'1.2-6'}}</span>
+                }
+                <span class="current-price" [class.trailed]="log.initialSl && log.initialSl !== log.sl">
+          {{log.sl | number:'1.2-6'}}
+        </span>
+                <span class="percent-dist">
+          {{ getPercent(log.price, log.sl) | number:'1.2-2' }}%
+        </span>
+              </div>
+            </td>
+
+            <td class="tp-cell">
+              <div class="price-stack">
+                <span class="current-price">{{log.tp | number:'1.2-6'}}</span>
+                <span class="percent-dist tp-dist">
+          {{ getPercent(log.price, log.tp) | number:'1.2-2' }}%
+        </span>
+              </div>
+            </td>
 
             <td class="rr-cell" [style.color]="log.rr >= 1.5 ? '#0ecb81' : '#f3ba2f'">
               {{log.rr | number:'1.1-2'}}
@@ -57,17 +81,17 @@
 
             <td class="metrics-cell">
               <div class="metrics-wrapper">
-                <span class="vol-val" [style.color]="log.volMult >= 5 ? '#f3ba2f' : '#848e9c'">
-                  x{{log.volMult | number:'1.1-1'}}
-                </span>
+        <span class="vol-val" [style.color]="log.volMult >= 5 ? '#f3ba2f' : '#848e9c'">
+          x{{log.volMult | number:'1.1-1'}}
+        </span>
                 <span class="divider">/</span>
                 <span class="swing-val" [style.color]="log.swingStrength >= 0.3 ? '#0ecb81' : '#f6465d'">
-                  {{log.swingStrength | number:'1.2-2'}}%
-                </span>
+          {{log.swingStrength | number:'1.2-2'}}%
+        </span>
                 <span class="divider">/</span>
                 <span class="lvl-val" [style.color]="log.lvlStrength >= 2.0 ? '#f3ba2f' : '#848e9c'">
-                  L:{{log.lvlStrength | number:'1.1-1'}}
-                </span>
+          L:{{log.lvlStrength | number:'1.1-1'}}
+        </span>
               </div>
             </td>
 
@@ -88,13 +112,8 @@
                 <span class="badge sl">Стоп: {{log.pnl | number:'1.2-2'}}%</span>
               }
             </td>
+
             <td class="liq-cell text-right">${{log.liq | number:'1.0-0'}}</td>
-          </tr>
-        } @empty {
-          <tr>
-            <td colspan="12" class="empty-cell">
-              Журнал поки що порожній. Збираємо статистику для аналізу...
-            </td>
           </tr>
         }
       </tbody>

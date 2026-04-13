@@ -9,7 +9,7 @@ export interface KlineData {
   low?: number;
   close?: number;
   volume?: number;
-  startTime?: number;
+  openTime?: number; // Змінено з startTime на openTime для відповідності логіці
   side?: string;
   amount?: number;
 }

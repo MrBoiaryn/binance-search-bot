@@ -9,7 +9,7 @@ export interface KlineData {
   low?: number;
   close?: number;
   volume?: number;
-  startTime?: number;
+  openTime?: number; // Змінено з startTime на openTime для відповідності логіці
   side?: string;
   amount?: number;
 }
@@ -56,20 +56,22 @@ export interface HistoricalLog {
 }
 
 // НОВИЙ ІНТЕРФЕЙС НАЛАШТУВАНЬ
+
 export interface ScannerSettings {
   marketType: 'spot' | 'futures';
-  // timeframe: string;
+  timeframes: string[];
   volumeThreshold: number;
-  swingPeriod: number;
+  swingPeriod: number;        // Це твої 10, 50, 100 свічок
+  minSwingDeviation: number;  // НОВЕ: Це мінімальний % відхилення (захист від флету)
   minLiquidation: number;
   minRR: number;
   soundEnabled: boolean;
   holdStale: boolean;
-  showLong: boolean;  // Додано
-  showShort: boolean; // Додано
-  useDivergence: boolean; // ✅ ДОДАНО ДЛЯ ПРЕМІУМ ФІЧІ
-  timeframes: string[]; // ✅ Масив замість одного рядка
+  showLong: boolean;
+  showShort: boolean;
+  useDivergence: boolean;
 }
+
 export interface PatternContext {
   kline: any;          // Поточна свічка (live)
   lastCandle: any;     // Попередня закрита свічка

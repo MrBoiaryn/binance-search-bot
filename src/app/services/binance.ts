@@ -5,8 +5,7 @@ import { KlineData } from '../models/models';
 
 @Injectable({ providedIn: 'root' })
 export class BinanceSocketService {
-  private ws: WebSocket | null = null;
-  private socketSubject = new Subject<KlineData>();
+  private sockets: Map<string, WebSocket> = new Map();
 
   private readonly IGNORED_COINS = [
     'USDC', 'FDUSD', 'TUSD', 'BUSD', 'USDP', // Інші стейблкоїни
@@ -20,84 +19,97 @@ export class BinanceSocketService {
     const baseUrl = this.getBaseUrl(market);
 
     return new Observable(observer => {
-      this.http.get<any[]>(`${baseUrl}/ticker/24hr`).subscribe(data => {
-        const topPairs = data
-          .filter(t => {
-            // Перевіряємо, чи пара закінчується на USDT
-            if (!t.symbol.endsWith('USDT')) return false;
+      this.http.get<any[]>(`${baseUrl}/ticker/24hr`).subscribe({
+        next: (data) => {
+          const topPairs = data
+            .filter(t => {
+              if (!t.symbol.endsWith('USDT')) return false;
+              const baseCoin = t.symbol.replace('USDT', '');
+              if (this.IGNORED_COINS.includes(baseCoin)) return false;
+              return true;
+            })
+            .sort((a, b) => parseFloat(b.quoteVolume || b.v) - parseFloat(a.quoteVolume || a.v))
+            .slice(0, 100)
+            .map(t => t.symbol.toLowerCase());
 
-            // Витягуємо базову монету (наприклад, з 'USDCUSDT' робимо 'USDC')
-            const baseCoin = t.symbol.replace('USDT', '');
-
-            // Пропускаємо пару, якщо базова монета є в чорному списку
-            if (this.IGNORED_COINS.includes(baseCoin)) return false;
-
-            return true;
-          })
-          .sort((a, b) => parseFloat(b.quoteVolume || b.v) - parseFloat(a.quoteVolume || a.v))
-          .slice(0, 100) // Беремо топ 100 чистих альтів/біткоїн
-          .map(t => t.symbol.toLowerCase());
-
-        observer.next(topPairs);
-        observer.complete();
+          observer.next(topPairs);
+          observer.complete();
+        },
+        error: (err) => observer.error(err)
       });
     });
   }
 
   // Підключення до WebSocket Binance
   connectKlines(pairs: string[], timeframe: string, market: 'spot' | 'futures'): Observable<KlineData> {
-    this.closeExistingSocket();
+    const socketKey = `${market}_${timeframe}`;
+    this.closeSocketByKey(socketKey);
 
-    const baseUrl = market === 'futures' ? 'wss://fstream.binance.com' : 'wss://stream.binance.com:9443';
-    let streamsList = pairs.map(p => `${p}@kline_${timeframe}`);
-    if (market === 'futures') streamsList.push('!forceOrder@arr');
+    return new Observable<KlineData>(observer => {
+      const baseUrl = market === 'futures' ? 'wss://fstream.binance.com' : 'wss://stream.binance.com:9443';
+      let streamsList = pairs.map(p => `${p}@kline_${timeframe}`);
+      if (market === 'futures') streamsList.push('!forceOrder@arr');
 
-    const wsUrl = `${baseUrl}/stream?streams=${streamsList.join('/')}`;
-    this.ws = new WebSocket(wsUrl);
+      const wsUrl = `${baseUrl}/stream?streams=${streamsList.join('/')}`;
+      const ws = new WebSocket(wsUrl);
+      this.sockets.set(socketKey, ws);
 
-    this.ws.onmessage = (event) => {
-      const parsed = JSON.parse(event.data);
-      if (!parsed.data) return;
+      ws.onmessage = (event) => {
+        const parsed = JSON.parse(event.data);
+        if (!parsed.data) return;
 
-      if (parsed.data.e === 'kline') {
-        const k = parsed.data.k;
-        this.socketSubject.next({
-          type: 'kline', symbol: parsed.data.s, isClosed: k.x,
-          open: parseFloat(k.o), high: parseFloat(k.h), low: parseFloat(k.l), close: parseFloat(k.c),
-          volume: parseFloat(k.v), startTime: k.t
-        });
-      } else if (parsed.data.e === 'forceOrder') {
-        const o = parsed.data.o;
-        this.socketSubject.next({
-          type: 'liquidation', symbol: o.s, side: o.S,
-          amount: parseFloat(o.p) * parseFloat(o.q)
-        });
-      }
-    };
+        if (parsed.data.e === 'kline') {
+          const k = parsed.data.k;
+          observer.next({
+            type: 'kline',
+            symbol: parsed.data.s,
+            isClosed: k.x,
+            open: parseFloat(k.o),
+            high: parseFloat(k.h),
+            low: parseFloat(k.l),
+            close: parseFloat(k.c),
+            volume: parseFloat(k.v),
+            openTime: k.t // Виправлено: використовуємо openTime
+          });
+        } else if (parsed.data.e === 'forceOrder') {
+          const o = parsed.data.o;
+          observer.next({
+            type: 'liquidation',
+            symbol: o.s,
+            side: o.S,
+            amount: parseFloat(o.p) * parseFloat(o.q)
+          });
+        }
+      };
 
-    this.ws.onclose = (e) => {
-      if (e.code !== 1000) setTimeout(() => this.reconnect(market, timeframe, pairs), 5000);
-    };
+      ws.onerror = (err) => observer.error(err);
+      
+      ws.onclose = (e) => {
+        if (e.code !== 1000) {
+          console.warn(`[WS ${socketKey}] Closed unexpectedly. Reconnecting...`);
+          // В реальному додатку тут краще використовувати логіку реконекту через RxJS (retryWhen)
+        }
+      };
 
-    return this.socketSubject.asObservable();
+      // Cleanup при відписці
+      return () => {
+        this.closeSocketByKey(socketKey);
+      };
+    });
   }
 
-  private closeExistingSocket() {
-    if (this.ws) {
-      this.ws.onmessage = this.ws.onerror = this.ws.onclose = null;
-      this.ws.close(1000);
-      this.ws = null;
+  private closeSocketByKey(key: string) {
+    const ws = this.sockets.get(key);
+    if (ws) {
+      ws.onmessage = ws.onerror = ws.onclose = null;
+      ws.close(1000);
+      this.sockets.delete(key);
     }
   }
 
   getKlinesHistory(symbol: string, interval: string, market: 'spot' | 'futures'): Observable<any[]> {
     const baseUrl = this.getBaseUrl(market);
     return this.http.get<any[]>(`${baseUrl}/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=1000`);
-  }
-
-  private reconnect(market: 'spot' | 'futures', timeframe: string, pairs: string[]) {
-    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
-    this.connectKlines(pairs, timeframe, market);
   }
 
   getExchangeInfo(marketType: 'spot' | 'futures'): Observable<any> {

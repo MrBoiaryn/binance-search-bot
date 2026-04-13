@@ -1,7 +1,7 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { from, of, delay, mergeMap, map, toArray, catchError } from 'rxjs';
+import { from, of, delay, mergeMap, map, toArray, catchError, Subject, auditTime, takeUntil, Subscription } from 'rxjs';
 
 // Сервіси та константи
 import { BinanceSocketService } from './services/binance';
@@ -22,33 +22,35 @@ import { HistoryTable } from './components/history-table/history-table';
   templateUrl: './app.html',
   styleUrls: ['./app.scss']
 })
-export class App implements OnInit {
-  // --- СХОВИЩА ДАНИХ (Ключ завжди "SYMBOL_TF") ---
-  activeSignals: Map<string, TradeSignal> = new Map(); // Живі сигнали на екрані
-  signalsList: TradeSignal[] = [];                    // Відфільтрований масив для UI
-  lastSignalsHistory: HistoricalLog[] = [];           // Історія для таблиці (LocalStorage)
+export class App implements OnInit, OnDestroy {
+  // --- СХОВИЩА ДАНИХ ---
+  activeSignals: Map<string, TradeSignal> = new Map();
+  signalsList: TradeSignal[] = [];
+  lastSignalsHistory: HistoricalLog[] = [];
 
-  klineHistory: Map<string, any[]> = new Map();       // Історія свічок (500+ для кожного ТФ)
-  volumeAverages: Map<string, number> = new Map();    // Середній об'єм для розрахунку сплесків
-  symbolTickSizes: Map<string, number> = new Map();   // Крок ціни для кожної монети з ExchangeInfo
+  klineHistory: Map<string, any[]> = new Map();
+  volumeAverages: Map<string, number> = new Map();
+  symbolTickSizes: Map<string, number> = new Map();
   private symbolQuotes: Map<string, string> = new Map();
 
-  private removalTimeouts: Map<string, any> = new Map();
-  private socketSubscriptions: Map<string, any> = new Map(); // Підписки для кожного ТФ
+  private socketSubscriptions: Map<string, Subscription> = new Map();
+  private destroy$ = new Subject<void>();
+  private uiUpdate$ = new Subject<void>();
 
-  // --- НАЛАШТУВАННЯ ЗА ЗАМОВЧУВАННЯМ ---
+  // --- НАЛАШТУВАННЯ ---
   settings: ScannerSettings = {
     marketType: 'futures',
-    timeframes: ['1m'], // Тепер це масив
-    volumeThreshold: 1.5, // Для збору статистики ставимо низький
+    timeframes: ['1m'],
+    volumeThreshold: 1.5,
     swingPeriod: 10,
+    minSwingDeviation: 0.3,
     minLiquidation: 0,
-    minRR: 0.1,           // Беремо все для аналізу
+    minRR: 1.5,
     soundEnabled: true,
-    holdStale: true,
+    holdStale: false,
     showLong: true,
     showShort: true,
-    useDivergence: false, // Для "сирого" збору вимикаємо, або вмикаємо для снайпінгу
+    useDivergence: false,
   };
 
   constructor(
@@ -56,11 +58,23 @@ export class App implements OnInit {
     private cdr: ChangeDetectorRef,
     private storage: TradeStorageService,
     private tracker: PositionTrackerService,
-  ) {}
+  ) {
+    // UI Тротлінг: оновлюємо екран не частіше 2 разів на секунду
+    this.uiUpdate$.pipe(
+      auditTime(500),
+      takeUntil(this.destroy$)
+    ).subscribe(() => this.performUIUpdate());
+  }
 
   ngOnInit() {
     this.loadInitialConfig();
     this.startScanner();
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+    this.resetScannerState();
   }
 
   // --- ІНІЦІАЛІЗАЦІЯ ТА ПІДКЛЮЧЕННЯ ---
@@ -69,25 +83,28 @@ export class App implements OnInit {
     const saved = this.storage.loadSettings();
     if (saved) this.settings = { ...this.settings, ...saved };
     this.lastSignalsHistory = this.storage.loadHistory();
+    console.log(this.settings);
   }
 
   startScanner() {
     console.log(`📡 [SYSTEM] Starting Multi-TF Scanner...`);
 
-    this.socketService.getExchangeInfo(this.settings.marketType).subscribe(info => {
-      this.processExchangeInfo(info.symbols);
+    this.socketService.getExchangeInfo(this.settings.marketType)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(info => {
+        this.processExchangeInfo(info.symbols);
 
-      this.socketService.getTopPairs(this.settings.marketType).subscribe(pairs => {
-        // Запускаємо окремий потік для кожного обраного таймфрейму
-        this.settings.timeframes.forEach(tf => {
-          this.initTimeframe(pairs, tf);
-        });
+        this.socketService.getTopPairs(this.settings.marketType)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe(pairs => {
+            this.settings.timeframes.forEach(tf => {
+              this.initTimeframe(pairs, tf);
+            });
+          });
       });
-    });
   }
 
   onSettingsUpdated(newSettings: ScannerSettings) {
-    // Перевіряємо, чи змінилися критичні параметри, що потребують перезавантаження
     const needsRestart =
       JSON.stringify(newSettings.timeframes) !== JSON.stringify(this.settings.timeframes) ||
       newSettings.marketType !== this.settings.marketType;
@@ -99,7 +116,7 @@ export class App implements OnInit {
       this.resetScannerState();
       this.startScanner();
     } else {
-      this.updateUI();
+      this.uiUpdate$.next();
     }
   }
 
@@ -107,7 +124,7 @@ export class App implements OnInit {
     if (window.confirm('Ви впевнені, що хочете видалити всю історію угод?')) {
       this.lastSignalsHistory = [];
       this.storage.saveHistory([]);
-      this.cdr.detectChanges();
+      this.uiUpdate$.next();
     }
   }
 
@@ -118,15 +135,26 @@ export class App implements OnInit {
       mergeMap(p => this.socketService.getKlinesHistory(p, tf, this.settings.marketType).pipe(
         map(data => ({ symbol: p.toUpperCase(), tf, data })),
         catchError(() => of(null)),
-        delay(50) // Захист від бана по IP при масових запитах
+        delay(200)
       ), 5),
-      toArray()
+      toArray(),
+      takeUntil(this.destroy$)
     ).subscribe(results => {
       results.filter(r => r !== null).forEach(res => {
         const key = `${res.symbol}_${res.tf}`;
         const formatted = res.data.map((k: any) => ({
-          close: parseFloat(k[4]), high: parseFloat(k[2]), low: parseFloat(k[3]), open: parseFloat(k[1]), volume: parseFloat(k[5])
+          close: parseFloat(k[4]), 
+          high: parseFloat(k[2]), 
+          low: parseFloat(k[3]), 
+          open: parseFloat(k[1]), 
+          volume: parseFloat(k[5]),
+          ao: 0 // Для кешування
         }));
+
+        // Попередній розрахунок AO для завантаженої історії
+        for (let i = 33; i < formatted.length; i++) {
+          formatted[i].ao = this.calculateAO(formatted, i);
+        }
 
         this.klineHistory.set(key, formatted);
         const avg = formatted.reduce((acc: number, c: any) => acc + c.volume, 0) / formatted.length;
@@ -139,6 +167,7 @@ export class App implements OnInit {
 
   private connectWebSocket(pairs: string[], tf: string) {
     const sub = this.socketService.connectKlines(pairs, tf, this.settings.marketType)
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (data) => this.analyzeData(data, tf),
         error: (err) => console.error(`🚨 [WS ${tf}] Error:`, err)
@@ -155,31 +184,35 @@ export class App implements OnInit {
     this.volumeAverages.clear();
   }
 
-  // --- ЯДРО АНАЛІЗУ (MULTI-TF) ---
+  // --- ЯДРО АНАЛІЗУ ---
 
   private analyzeData(data: any, tf: string) {
-    if (data.type === 'liquidation') return; // Ліквідації обробляються окремо (глобально)
+    if (data.type === 'liquidation') return;
 
     const kline = data;
     const key = `${kline.symbol}_${tf}`;
 
-    // 1. Відстежуємо Paper Trading (Тейки/Стопи в реальному часі)
-    const isHistoryUpdated = this.tracker.processTick(kline, this.lastSignalsHistory);
+    // 1. Відстежуємо Paper Trading
+    const isHistoryUpdated = this.tracker.processTick({ ...kline, tf }, this.lastSignalsHistory);
+
     if (isHistoryUpdated) {
       this.storage.saveHistory(this.lastSignalsHistory);
-      this.updateUI();
+      this.uiUpdate$.next();
     }
 
     // 2. Обробка закриття свічки
     if (kline.isClosed) {
-      const activeSignal = this.activeSignals.get(key);
-      if (activeSignal && !activeSignal.isStale) {
-        this.addSignalToHistory(kline, activeSignal, tf);
+      this.processTick(kline, tf, key);
+
+      const validFinalSignal = this.activeSignals.get(key);
+      if (validFinalSignal) {
+        this.addSignalToHistory(kline, validFinalSignal, tf);
       }
+
       this.updateKlineHistory(key, kline);
       this.updateVolumeAverage(key, kline.volume!);
       this.activeSignals.delete(key);
-      this.updateUI();
+      this.uiUpdate$.next();
     }
     // 3. Аналіз поточного Тіка
     else {
@@ -191,51 +224,62 @@ export class App implements OnInit {
     const history = this.klineHistory.get(key) || [];
     if (history.length < 50) return;
 
-    // Рахуємо динамічні метрики
     const avgVol = this.volumeAverages.get(key) || kline.volume!;
-    const volMult = kline.volume! / avgVol;
+    
+    // ✅ ВИДАЛЕНО VOLUME PROJECTION: беремо тільки реальний об'єм свічки на даний момент
+    const volMult = this.calculateVolMult(kline, tf, avgVol);
 
     const ctx = this.createPatternContext(kline, history);
     const signal = this.detectTradeSignal(kline, volMult, ctx, history, tf);
 
     if (signal) {
-      this.manageSignalLifecycle(key, signal);
-    } else if (!this.settings.holdStale) {
+      const isNew = !this.activeSignals.has(key);
+      this.activeSignals.set(key, signal);
+
+      if (isNew && this.settings.soundEnabled) {
+        this.playAlertSound();
+      }
+    } else {
       this.activeSignals.delete(key);
     }
 
-    this.updateUI();
+    this.uiUpdate$.next();
   }
 
   // --- ЛОГІКА СИГНАЛІВ ТА ПАТЕРНІВ ---
 
   private detectTradeSignal(kline: any, volMult: number, ctx: PatternContext, history: any[], tf: string): TradeSignal | null {
-    // Dual-Mode логіка
     const isAnomalousVol = volMult >= (this.settings.volumeThreshold * 2);
-    const hasLongDiv = this.checkAODivergence(history, 'LONG');
-    const hasShortDiv = this.checkAODivergence(history, 'SHORT');
+    const minLevelRequired = 1.5; // Не беремо угоди без підтримки рівня
 
+    // Рахуємо AO для поточного тіка без перерахунку всієї історії
+    const currentAO = this.calculateAOForTick(history, kline);
+    const hasLongDiv = this.settings.useDivergence && this.checkAODivergence(history, 'LONG', currentAO);
+
+    const hasShortDiv = this.settings.useDivergence && this.checkAODivergence(history, 'SHORT', currentAO);
     const canEnterLong = this.settings.useDivergence ? (hasLongDiv || isAnomalousVol) : (volMult >= this.settings.volumeThreshold);
     const canEnterShort = this.settings.useDivergence ? (hasShortDiv || isAnomalousVol) : (volMult >= this.settings.volumeThreshold);
 
-    // Пошук Long патернів
     if (ctx.isLocalBottom && this.settings.showLong && canEnterLong) {
       for (const detect of Detectors.LONG_DETECTORS) {
         const name = detect(ctx);
         if (name) {
           const suffix = isAnomalousVol ? '🔥' : (hasLongDiv ? '💎' : '');
-          return this.createSignal(kline, 'LONG', `${name} ${suffix}`, volMult, tf, history);
+          const signal = this.createSignal(kline, 'LONG', `${name} ${suffix}`, volMult, tf, history);
+          if (signal && signal.lvlStrength < minLevelRequired) return null;
+          if (signal) return signal;
         }
       }
     }
 
-    // Пошук Short патернів
     if (ctx.isLocalPeak && this.settings.showShort && canEnterShort) {
       for (const detect of Detectors.SHORT_DETECTORS) {
         const name = detect(ctx);
         if (name) {
           const suffix = isAnomalousVol ? '🔥' : (hasShortDiv ? '💎' : '');
-          return this.createSignal(kline, 'SHORT', `${name} ${suffix}`, volMult, tf, history);
+          const signal = this.createSignal(kline, 'SHORT', `${name} ${suffix}`, volMult, tf, history);
+          if (signal && signal.lvlStrength < minLevelRequired) return null;
+          if (signal) return signal;
         }
       }
     }
@@ -243,115 +287,215 @@ export class App implements OnInit {
     return null;
   }
 
-  private createSignal(kline: any, type: 'LONG' | 'SHORT', pattern: string, vol: number, tf: string, history: any[]): TradeSignal {
+  private createSignal(kline: any, type: 'LONG' | 'SHORT', pattern: string, vol: number, tf: string, history: any[]): TradeSignal | null {
     const symbol = kline.symbol.toUpperCase();
     const tickSize = this.symbolTickSizes.get(symbol) || 0.0001;
 
-    // Вхід на пробій (±1 тік)
+    // 1. Розрахунок точки входу (на пробій екстремуму)
     const entryPrice = type === 'LONG'
       ? this.roundToTick(kline.high + tickSize, tickSize)
       : this.roundToTick(kline.low - tickSize, tickSize);
 
-    // Розрахунок SwingStrength (Відхилення від середньої за 20 свічок)
+    // 2. Перевірка натягу (відхилення від MA20)
+    const typicalPrice = (kline.high + kline.low + kline.close) / 3;
+    // Рахуємо середню ціну (MA20)
     const avgPrice = history.slice(-20).reduce((acc, k) => acc + k.close, 0) / 20;
-    const swingStrength = Math.abs((entryPrice - avgPrice) / avgPrice) * 100;
+    // Swing Strength - це відхилення "центру" свічки від середньої
+    const maDeviation = Math.abs((typicalPrice - avgPrice) / avgPrice) * 100;
 
-    // Сила рівня (Bins - аналіз 500 свічок)
-    const lookback = history.slice(-500);
-    const levelData = this.findTrueLevel(lookback, type === 'LONG' ? 'RESISTANCE' : 'SUPPORT', entryPrice);
+    if (maDeviation < this.settings.minSwingDeviation) return null;
 
-    // Stop Loss (1 тік за локальний екстремум)
+    // 3. Розрахунок ризику (Стоп-Лосс)
     const sl = this.calculateSL(kline, history, type, tickSize);
-    const tp = this.roundToTick(levelData.price, tickSize);
+    const actualRisk = Math.abs(entryPrice - sl) || tickSize;
 
-    const risk = Math.abs(entryPrice - sl) || tickSize;
-    const reward = Math.abs(tp - entryPrice);
+    // Захист від занадто вузького стопу (мінімум 0.1% або середня свічка)
+    const recentCandles = history.slice(-10);
+    const avgCandleRange = recentCandles.reduce((acc, k) => acc + (k.high - k.low), 0) / 10;
+    const minAllowedRisk = Math.max(avgCandleRange, entryPrice * 0.001);
+    const effectiveRiskForTP = Math.max(actualRisk, minAllowedRisk);
+
+    // 4. Розрахунок цілі (Тейк-Профіт)
+    const levelData = this.findTrueLevel(history.slice(-500), type === 'LONG' ? 'RESISTANCE' : 'SUPPORT', entryPrice, tickSize);
+
+    let tpPrice = levelData.price;
+    const minRR = this.settings.minRR > 0 ? this.settings.minRR : 1.5;
+    const maxRR = 5.0;
+
+    const requiredReward = effectiveRiskForTP * minRR;
+    const maxAllowedReward = effectiveRiskForTP * maxRR;
+
+    // Перевірка напрямку Тейку відносно входу
+    if (type === 'LONG' && tpPrice <= entryPrice) {
+      tpPrice = entryPrice + requiredReward;
+    } else if (type === 'SHORT' && tpPrice >= entryPrice) {
+      tpPrice = entryPrice - requiredReward;
+    }
+
+    let naturalReward = Math.abs(tpPrice - entryPrice);
+
+    // Логіка конфлікту з рівнем
+    if (naturalReward < requiredReward) {
+      if (levelData.strength < 2.5) {
+        // Якщо рівень слабкий - ігноруємо його, ставимо математичний TP по мін. RR
+        tpPrice = type === 'LONG' ? entryPrice + requiredReward : entryPrice - requiredReward;
+      } else {
+        // Сильний рівень заважає профіту - скасовуємо сигнал
+        return null;
+      }
+    }
+
+    // Обмеження максимальної жадібності
+    if (Math.abs(tpPrice - entryPrice) > maxAllowedReward) {
+      tpPrice = type === 'LONG' ? entryPrice + maxAllowedReward : entryPrice - maxAllowedReward;
+    }
+
+    // --- ✅ ФІКС ОКРУГЛЕННЯ RR ---
+    // Використовуємо спрямоване округлення, щоб не втратити частки RR через TickSize
+    const precision = Math.max(0, -Math.floor(Math.log10(tickSize)));
+    let tp: number;
+
+    if (type === 'LONG') {
+      // Для Long округляємо ціну TP ТІЛЬКИ ВГОРУ до найближчого тіка
+      tp = parseFloat((Math.ceil(tpPrice / tickSize) * tickSize).toFixed(precision));
+    } else {
+      // Для Short округляємо ціну TP ТІЛЬКИ ВНИЗ до найближчого тіка
+      tp = parseFloat((Math.floor(tpPrice / tickSize) * tickSize).toFixed(precision));
+    }
+
+    const finalReward = Math.abs(tp - entryPrice);
+    const finalRR = finalReward / actualRisk;
+
+    // Фінальна перевірка: якщо після всіх округлень RR все ще < minRR, додаємо 1 тік
+    let verifiedTp = tp;
+    if (finalRR < minRR) {
+      verifiedTp = type === 'LONG'
+        ? parseFloat((tp + tickSize).toFixed(precision))
+        : parseFloat((tp - tickSize).toFixed(precision));
+    }
 
     return {
-      symbol, type, pattern, timeframe: tf,
+      symbol,
+      type,
+      pattern,
+      timeframe: tf,
       currentPrice: kline.close,
-      stopLoss: sl, takeProfit: tp,
+      stopLoss: sl,
+      takeProfit: verifiedTp,
       lvlStrength: levelData.strength,
-      swingStrength: swingStrength,
+      swingStrength: maDeviation,
       volumeMultiplier: vol,
-      liqAmount: 0, // Заповнюється окремо якщо треба
+      liqAmount: 0,
       timestamp: Date.now(),
       quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
-      profitPercent: (reward / entryPrice) * 100,
-      rr: reward / risk
+      profitPercent: (Math.abs(verifiedTp - entryPrice) / entryPrice) * 100,
+      rr: Math.abs(verifiedTp - entryPrice) / actualRisk
     };
   }
 
   // --- МАТЕМАТИЧНІ УТИЛІТИ ---
 
-  /**
-   * Розрахунок рівнів через кошики щільності (Bins)
-   */
-  private findTrueLevel(history: any[], type: 'SUPPORT' | 'RESISTANCE', currentPrice: number): { price: number, strength: number } {
+  private findTrueLevel(history: any[], type: 'SUPPORT' | 'RESISTANCE', currentPrice: number, tickSize: number) {
+    if (history.length === 0) return { price: currentPrice, strength: 0, zoneMin: currentPrice, zoneMax: currentPrice };
+
     const minP = Math.min(...history.map(k => k.low));
     const maxP = Math.max(...history.map(k => k.high));
-    const binSize = (maxP - minP) / 50;
-    const bins = new Array(50).fill(0);
+    if (maxP === minP) return { price: currentPrice, strength: 0, zoneMin: currentPrice, zoneMax: currentPrice };
 
+    const binSize = Math.max((maxP - minP) / 100, tickSize * 2);
+    const actualBinCount = Math.ceil((maxP - minP) / binSize) + 1;
+    const bins = new Array(actualBinCount).fill(0);
+
+    let totalVolume = 0;
     history.forEach(k => {
       const s = Math.floor((k.low - minP) / binSize);
       const e = Math.floor((k.high - minP) / binSize);
-      for (let i = s; i <= e; i++) if (i >= 0 && i < 50) bins[i]++;
+      const span = (e - s) + 1;
+      const volPerBin = k.volume / span;
+      for (let i = s; i <= e; i++) {
+        if (i >= 0 && i < actualBinCount) {
+          bins[i] += volPerBin;
+          totalVolume += volPerBin;
+        }
+      }
     });
 
-    const avgWeight = bins.reduce((a, b) => a + b, 0) / 50;
-    let bestI = -1, maxW = 0;
-
-    for (let i = 0; i < 50; i++) {
-      const p = minP + (i * binSize);
-      if (type === 'RESISTANCE' && p <= currentPrice) continue;
-      if (type === 'SUPPORT' && p >= currentPrice) continue;
-      if (bins[i] > maxW) { maxW = bins[i]; bestI = i; }
+    const avgVolumePerBin = totalVolume / actualBinCount;
+    const smoothedBins = [...bins];
+    for (let i = 1; i < actualBinCount - 1; i++) {
+      smoothedBins[i] = (bins[i - 1] + bins[i] * 2 + bins[i + 1]) / 4;
     }
 
-    const strength = maxW / (avgWeight || 1);
-    const price = bestI === -1
-      ? (type === 'RESISTANCE' ? maxP : minP)
-      : (type === 'RESISTANCE' ? minP + (bestI * binSize) : minP + (bestI * binSize) + binSize);
+    let bestPeakIndex = -1;
+    let maxWeight = 0;
 
-    return { price, strength };
+    for (let i = 1; i < actualBinCount - 1; i++) {
+      const priceAtBin = minP + (i * binSize);
+      if (type === 'RESISTANCE' && priceAtBin <= currentPrice) continue;
+      if (type === 'SUPPORT' && priceAtBin >= currentPrice) continue;
+      if (smoothedBins[i] > smoothedBins[i - 1] && smoothedBins[i] > smoothedBins[i + 1]) {
+        if (smoothedBins[i] > maxWeight) {
+          maxWeight = smoothedBins[i];
+          bestPeakIndex = i;
+        }
+      }
+    }
+
+    if (bestPeakIndex === -1) return { price: type === 'RESISTANCE' ? maxP : minP, strength: 0, zoneMin: 0, zoneMax: 0 };
+
+    let leftBound = bestPeakIndex;
+    while (leftBound > 0 && smoothedBins[leftBound - 1] > maxWeight * 0.5) leftBound--;
+    let rightBound = bestPeakIndex;
+    while (rightBound < actualBinCount - 1 && smoothedBins[rightBound + 1] > maxWeight * 0.5) rightBound++;
+
+    const zoneMin = minP + (leftBound * binSize);
+    const zoneMax = minP + (rightBound * binSize) + binSize;
+    const strength = maxWeight / (avgVolumePerBin || 1);
+
+    return {
+      price: type === 'RESISTANCE' ? zoneMin : zoneMax,
+      strength, zoneMin, zoneMax
+    };
   }
 
-  /**
-   * Дивергенція AO (з захистом від ножів та нульовою лінією)
-   */
-  private checkAODivergence(history: any[], type: 'LONG' | 'SHORT'): boolean {
+  private checkAODivergence(history: any[], type: 'LONG' | 'SHORT', currentAO: number): boolean {
     const len = history.length;
     if (len < 50) return false;
-    const ao = history.map((_, i) => this.calculateAO(history, i));
-    const curr = ao[len - 1], prev = ao[len - 2];
+    
+    // Використовуємо кешовані значення AO з історії
+    const getAO = (i: number) => (i === len) ? currentAO : (history[i].ao || 0);
+    const curr = currentAO, prev = getAO(len - 1);
 
     if (type === 'LONG') {
-      if (curr <= prev || curr >= 0) return false; // Гістограма має бути зеленою і під нулем
-      let recM = Infinity, recAO = Infinity, i = len - 1;
+      if (curr <= prev || curr >= 0) return false;
+      let recM = Infinity, recAO = Infinity, i = len;
       for (; i >= len - 20; i--) {
-        if (history[i].low < recM) recM = history[i].low;
-        if (ao[i] < recAO) recAO = ao[i];
-        if (ao[i] > 0) break;
+        const low = i === len ? history[len-1].low : history[i].low;
+        const ao = getAO(i);
+        if (low < recM) recM = low;
+        if (ao < recAO) recAO = ao;
+        if (ao > 0) break;
       }
       let pastM = Infinity, pastAO = Infinity;
       for (; i >= len - 50; i--) {
         if (history[i].low < pastM) pastM = history[i].low;
-        if (ao[i] < pastAO) pastAO = ao[i];
+        if (getAO(i) < pastAO) pastAO = getAO(i);
       }
       return (recM < pastM) && (recAO > pastAO);
     } else {
       if (curr >= prev || curr <= 0) return false;
-      let recM = -Infinity, recAO = -Infinity, i = len - 1;
+      let recM = -Infinity, recAO = -Infinity, i = len;
       for (; i >= len - 20; i--) {
-        if (history[i].high > recM) recM = history[i].high;
-        if (ao[i] > recAO) recAO = ao[i];
-        if (ao[i] < 0) break;
+        const high = i === len ? history[len-1].high : history[i].high;
+        const ao = getAO(i);
+        if (high > recM) recM = high;
+        if (ao > recAO) recAO = ao;
+        if (ao < 0) break;
       }
       let pastM = -Infinity, pastAO = -Infinity;
       for (; i >= len - 50; i--) {
         if (history[i].high > pastM) pastM = history[i].high;
-        if (ao[i] > pastAO) pastAO = ao[i];
+        if (getAO(i) > pastAO) pastAO = getAO(i);
       }
       return (recM > pastM) && (recAO < pastAO);
     }
@@ -365,30 +509,70 @@ export class App implements OnInit {
     return (s5 / 5) - (s34 / 34);
   }
 
+  private calculateAOForTick(history: any[], kline: any): number {
+    const mid = (i: number) => (history[i].high + history[i].low) / 2;
+    const currentMid = (kline.high + kline.low) / 2;
+    let s5 = currentMid; for (let i = history.length - 1; i > history.length - 5; i--) s5 += mid(i);
+    let s34 = currentMid; for (let i = history.length - 1; i > history.length - 34; i--) s34 += mid(i);
+    return (s5 / 5) - (s34 / 34);
+  }
+
   private roundToTick(price: number, tick: number): number {
     const p = Math.max(0, -Math.floor(Math.log10(tick)));
     return parseFloat((Math.round(price / tick) * tick).toFixed(p));
   }
 
+  private getTfMs(tf: string): number {
+    const unit = tf.slice(-1);
+    const value = parseInt(tf);
+    switch (unit) {
+      case 'm': return value * 60 * 1000;
+      case 'h': return value * 60 * 60 * 1000;
+      case 'd': return value * 24 * 60 * 60 * 1000;
+      default: return 60 * 1000;
+    }
+  }
+
+  private calculateVolMult(kline: any, tf: string, avgVol: number): number {
+    if (!kline.openTime || avgVol === 0) return kline.volume / (avgVol || 1);
+
+    const now = Date.now();
+    const elapsed = now - kline.openTime;
+    const total = this.getTfMs(tf);
+
+    // Динамічний поріг: 50% від тривалості таймфрейму
+    const projectionThreshold = total / 2;
+
+    // Якщо свічка закрита або ми ще не пройшли "екватор" свічки — беремо факт
+    if (kline.isClosed || elapsed < projectionThreshold) {
+      return kline.volume / avgVol;
+    }
+
+    // Розраховуємо прогрес (Ratio) від 0.5 до 1.0
+    const ratio = Math.min(0.99, elapsed / total);
+
+    // Проектуємо фінальний об'єм на основі темпу
+    const projectedVol = kline.volume / ratio;
+
+    return projectedVol / avgVol;
+  }
+
   // --- УПРАВЛІННЯ UI ТА ІСТОРІЄЮ ---
 
   private addSignalToHistory(kline: any, sig: TradeSignal, tf: string) {
-    // ✅ Отримуємо правильний тік для конкретної монети
     const tick = this.symbolTickSizes.get(kline.symbol.toUpperCase()) || 0.0001;
-
-    // ✅ Розраховуємо вхід правильно (1 тік від хая/лоу)
     const entryPrice = sig.type === 'LONG'
       ? this.roundToTick(kline.high + tick, tick)
       : this.roundToTick(kline.low - tick, tick);
 
     this.lastSignalsHistory.unshift({
       id: Date.now() + Math.random(),
-      time: new Date().toLocaleTimeString(),
+      time: kline.openTime ? new Date(kline.openTime).toLocaleTimeString() : new Date().toLocaleTimeString(),
       symbol: kline.symbol,
       timeframe: tf,
       type: sig.type,
       pattern: sig.pattern,
-      price: entryPrice, // Використовуємо розрахований entryPrice
+      price: entryPrice,
       sl: sig.stopLoss,
       tp: sig.takeProfit,
       rr: sig.rr,
@@ -401,18 +585,16 @@ export class App implements OnInit {
       isOpened: false
     });
 
-    if (this.lastSignalsHistory.length > 2000) this.lastSignalsHistory.pop(); // Збільшив до 2к для Big Data
+    if (this.lastSignalsHistory.length > 2000) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);
   }
 
-  updateUI() {
+  private performUIUpdate() {
     this.signalsList = Array.from(this.activeSignals.values())
       .filter(s => (s.type === 'LONG' && this.settings.showLong) || (s.type === 'SHORT' && this.settings.showShort))
       .sort((a, b) => b.timestamp - a.timestamp);
     this.cdr.detectChanges();
   }
-
-  // --- ДОПОМІЖНІ МЕТОДИ ---
 
   private processExchangeInfo(symbols: any[]) {
     symbols.forEach(s => {
@@ -444,33 +626,26 @@ export class App implements OnInit {
 
   private updateKlineHistory(key: string, kline: any) {
     let h = this.klineHistory.get(key) || [];
-    h.push({ close: kline.close, high: kline.high, low: kline.low, open: kline.open, volume: kline.volume });
+    const newCandle = { 
+      close: kline.close, 
+      high: kline.high, 
+      low: kline.low, 
+      open: kline.open, 
+      volume: kline.volume,
+      ao: 0
+    };
+    h.push(newCandle);
     if (h.length > 600) h.shift();
+    
+    // Кешуємо AO тільки для нової закритої свічки
+    newCandle.ao = this.calculateAO(h, h.length - 1);
+    
     this.klineHistory.set(key, h);
   }
 
   private updateVolumeAverage(key: string, vol: number) {
     const a = this.volumeAverages.get(key) || vol;
     this.volumeAverages.set(key, (a * 19 + vol) / 20);
-  }
-
-  private cleanupKlineData(symbol: string) {
-    // В мульти-ТФ очистка йде по конкретному ключу SYMBOL_TF в handleClosedKline
-  }
-
-  private manageSignalLifecycle(key: string, signal: TradeSignal) {
-    if (signal.rr >= this.settings.minRR) {
-      this.cancelRemoval(key);
-      this.activeSignals.set(key, signal);
-      if (this.settings.soundEnabled) this.playAlertSound();
-    }
-  }
-
-  private cancelRemoval(key: string) {
-    if (this.removalTimeouts.has(key)) {
-      clearTimeout(this.removalTimeouts.get(key));
-      this.removalTimeouts.delete(key);
-    }
   }
 
   private playAlertSound() {

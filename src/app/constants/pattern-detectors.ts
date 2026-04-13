@@ -3,133 +3,170 @@ import { PatternContext } from '../models/models';
 export type DetectorFn = (ctx: PatternContext) => string | null;
 
 /**
- * --- HELPERS ---
- * Допоміжні функції, щоб не дублювати математику в кожному патерні
+ * --- ДОПОМІЖНІ МЕТРИКИ ---
  */
 const getBody = (k: any) => Math.abs(k.close - k.open);
+const getRange = (k: any) => k.high - k.low;
 const getUpperShadow = (k: any) => k.high - Math.max(k.open, k.close);
 const getLowerShadow = (k: any) => Math.min(k.open, k.close) - k.low;
+
 const isBullish = (k: any) => k.close > k.open;
 const isBearish = (k: any) => k.close < k.open;
 
 /**
- * --- LONG PATTERNS ---
+ * --- НЕЙТРАЛЬНІ ПАТЕРНИ ---
  */
 
-// 1. Молот (Hammer) - класика
-export const hammerDetector: DetectorFn = ({ kline }) => {
+// Оновлений DOJI (тепер справді нейтральний)
+export const dojiDetector: DetectorFn = ({ kline }) => {
+  const range = getRange(kline);
+  if (range === 0) return null;
+
   const body = getBody(kline);
-  const lowerShadow = getLowerShadow(kline);
-  const upperShadow = getUpperShadow(kline);
-  return (lowerShadow > body * 2 && upperShadow < body * 0.5) ? 'Hammer' : null;
+  const upper = getUpperShadow(kline);
+  const lower = getLowerShadow(kline);
+
+  // 1. Тіло крихітне (до 10% діапазону)
+  const isSmallBody = body <= range * 0.1;
+  // 2. Тіло знаходиться посередині (тіні приблизно рівні, допуск 30%)
+  const isCentral = Math.abs(upper - lower) <= (range * 0.3);
+
+  return (isSmallBody && isCentral) ? 'Doji' : null;
 };
 
-// 2. Пін-бар (PinBar) - професійний молот з дуже довгою тінню
-export const pinBarLONG: DetectorFn = ({ kline }) => {
-  const body = getBody(kline);
-  const lowerShadow = getLowerShadow(kline);
-  return (lowerShadow > body * 3) ? 'PinBar' : null;
-};
-
-// 3. Поглинання (Engulfing)
-export const bullishEngulfing: DetectorFn = ({ kline, lastCandle }) => {
-  const body = getBody(kline);
-  const prevBody = getBody(lastCandle);
-  return (isBullish(kline) && isBearish(lastCandle) && body > prevBody * 1.1) ? 'Engulfing' : null;
-};
-
-// 4. Поглинання всього діапазону (Absorption) - коли тіло перекриває всю попередню свічку з тінями
-export const absorptionLONG: DetectorFn = ({ kline, lastCandle }) => {
-  const isStrong = kline.close > lastCandle.high && kline.open < lastCandle.low;
-  return (isStrong && isBullish(kline)) ? 'Absorption' : null;
-};
-
-// 5. Рельси (Railway Tracks) - дві великі зустрічні свічки
-export const railsLONG: DetectorFn = ({ kline, lastCandle, avgBody }) => {
-  const body = getBody(kline);
-  const prevBody = getBody(lastCandle);
-  const areLarge = body > avgBody * 1.5 && prevBody > avgBody * 1.5;
-  const areEqual = Math.abs(body - prevBody) < body * 0.2;
-  return (isBullish(kline) && isBearish(lastCandle) && areLarge && areEqual) ? 'Rails' : null;
-};
-
-// 6. Моментум (Momentum) - аномально велике тіло
-export const bullishMomentum: DetectorFn = ({ kline, avgBody }) => {
-  return (isBullish(kline) && getBody(kline) > avgBody * 2.5) ? 'Momentum' : null;
-};
-
-// 7. Внутрішній бар (Inside Bar) - ознака накопичення
-export const insideBar: DetectorFn = ({ kline, lastCandle }) => {
+export const insideBarDetector: DetectorFn = ({ kline, lastCandle }) => {
   return (kline.high < lastCandle.high && kline.low > lastCandle.low) ? 'Inside' : null;
 };
 
-
 /**
- * --- SHORT PATTERNS ---
+ * --- LONG PATTERNS (Бичачі) ---
  */
 
-// 1. Падаюча зоря (Shooting Star)
+export const hammerDetector: DetectorFn = ({ kline }) => {
+  const range = getRange(kline);
+  const body = getBody(kline);
+  if (range === 0) return null;
+
+  // Тіло вгорі, довгий хвіст знизу
+  const isSmallBody = body <= range * 0.3;
+  const isLongLowerShadow = getLowerShadow(kline) >= body * 2;
+  const isShortUpperShadow = getUpperShadow(kline) <= range * 0.1;
+
+  return (isSmallBody && isLongLowerShadow && isShortUpperShadow) ? 'Hammer' : null;
+};
+
+export const pinBarLONG: DetectorFn = ({ kline }) => {
+  const range = getRange(kline);
+  if (range === 0) return null;
+  // Хвіст займає 2/3 свічки (66%), тіло дуже мале
+  return (getLowerShadow(kline) >= range * 0.66 && getBody(kline) <= range * 0.15) ? 'PinBar' : null;
+};
+
+export const bullishEngulfing: DetectorFn = ({ kline, lastCandle }) => {
+  // Поточне тіло більше попереднього і закриває його повністю
+  return (isBullish(kline) && isBearish(lastCandle) &&
+    kline.close >= lastCandle.open && kline.open <= lastCandle.close) ? 'Engulfing' : null;
+};
+
+export const railsLONG: DetectorFn = ({ kline, lastCandle, avgBody }) => {
+  const b1 = getBody(lastCandle);
+  const b2 = getBody(kline);
+  const r1 = getRange(lastCandle);
+  const r2 = getRange(kline);
+
+  if (r1 === 0 || r2 === 0) return null;
+
+  const areLarge = b1 > avgBody * 1.5 && b2 > avgBody * 1.5;
+  const areEqual = Math.abs(b1 - b2) < b1 * 0.1; // Тіла майже однакові
+  const isClean = (b1 >= r1 * 0.85) && (b2 >= r2 * 0.85); // Тіні мінімальні
+
+  return (isBullish(kline) && isBearish(lastCandle) && areLarge && areEqual && isClean) ? 'Rails' : null;
+};
+
+export const absorptionLONG: DetectorFn = ({ kline, lastCandle }) => {
+  // Перекриваємо весь High-Low попередньої свічки
+  return (isBullish(kline) && kline.close > lastCandle.high && kline.open < lastCandle.low) ? 'Absorption' : null;
+};
+
+export const bullishMomentum: DetectorFn = ({ kline, avgBody }) => {
+  const b = getBody(kline);
+  return (isBullish(kline) && b > avgBody * 2.0 && b >= getRange(kline) * 0.9) ? 'Momentum' : null;
+};
+
+/**
+ * --- SHORT PATTERNS (Ведмежі) ---
+ */
+
 export const shootingStarDetector: DetectorFn = ({ kline }) => {
+  const range = getRange(kline);
   const body = getBody(kline);
-  const lowerShadow = getLowerShadow(kline);
-  const upperShadow = getUpperShadow(kline);
-  return (upperShadow > body * 2 && lowerShadow < body * 0.5) ? 'Star' : null;
+  if (range === 0) return null;
+
+  // Тіло внизу, довгий хвіст вгорі
+  const isSmallBody = body <= range * 0.3;
+  const isLongUpperShadow = getUpperShadow(kline) >= body * 2;
+  const isShortLowerShadow = getLowerShadow(kline) <= range * 0.1;
+
+  return (isSmallBody && isLongUpperShadow && isShortLowerShadow) ? 'Star' : null;
 };
 
-// 2. Пін-бар (Short PinBar)
 export const pinBarSHORT: DetectorFn = ({ kline }) => {
-  const body = getBody(kline);
-  const upperShadow = getUpperShadow(kline);
-  return (upperShadow > body * 3) ? 'PinBar' : null;
+  const range = getRange(kline);
+  if (range === 0) return null;
+  return (getUpperShadow(kline) >= range * 0.66 && getBody(kline) <= range * 0.15) ? 'PinBar' : null;
 };
 
-// 3. Ведмеже поглинання
 export const bearishEngulfing: DetectorFn = ({ kline, lastCandle }) => {
-  const body = getBody(kline);
-  const prevBody = getBody(lastCandle);
-  return (isBearish(kline) && isBullish(lastCandle) && body > prevBody * 1.1) ? 'Engulfing' : null;
+  return (isBearish(kline) && isBullish(lastCandle) &&
+    kline.close <= lastCandle.open && kline.open >= lastCandle.close) ? 'Engulfing' : null;
 };
 
-// 4. Ведмеже поглинання всього діапазону (Absorption)
-export const absorptionSHORT: DetectorFn = ({ kline, lastCandle }) => {
-  const isStrong = kline.close < lastCandle.low && kline.open > lastCandle.high;
-  return (isStrong && isBearish(kline)) ? 'Absorption' : null;
-};
-
-// 5. Рельси (Railway Tracks) SHORT
 export const railsSHORT: DetectorFn = ({ kline, lastCandle, avgBody }) => {
-  const body = getBody(kline);
-  const prevBody = getBody(lastCandle);
-  const areLarge = body > avgBody * 1.5 && prevBody > avgBody * 1.5;
-  const areEqual = Math.abs(body - prevBody) < body * 0.2;
-  return (isBearish(kline) && isBullish(lastCandle) && areLarge && areEqual) ? 'Rails' : null;
+  const b1 = getBody(lastCandle);
+  const b2 = getBody(kline);
+  const r1 = getRange(lastCandle);
+  const r2 = getRange(kline);
+
+  if (r1 === 0 || r2 === 0) return null;
+
+  const areLarge = b1 > avgBody * 1.5 && b2 > avgBody * 1.5;
+  const areEqual = Math.abs(b1 - b2) < b1 * 0.1;
+  const isClean = (b1 >= r1 * 0.85) && (b2 >= r2 * 0.85);
+
+  return (isBearish(kline) && isBullish(lastCandle) && areLarge && areEqual && isClean) ? 'Rails' : null;
 };
 
-// 6. Ведмежий Моментум
+export const absorptionSHORT: DetectorFn = ({ kline, lastCandle }) => {
+  return (isBearish(kline) && kline.close < lastCandle.low && kline.open > lastCandle.high) ? 'Absorption' : null;
+};
+
 export const bearishMomentum: DetectorFn = ({ kline, avgBody }) => {
-  return (isBearish(kline) && getBody(kline) > avgBody * 2.5) ? 'Momentum' : null;
+  const b = getBody(kline);
+  return (isBearish(kline) && b > avgBody * 2.0 && b >= getRange(kline) * 0.9) ? 'Momentum' : null;
 };
-
 
 /**
- * Реєстр патернів для зручного перебору
+ * --- РЕЄСТРИ ---
  */
+
 export const LONG_DETECTORS = [
   hammerDetector,
   pinBarLONG,
+  dojiDetector,
   bullishEngulfing,
-  absorptionLONG,
   railsLONG,
+  absorptionLONG,
   bullishMomentum,
-  insideBar
+  insideBarDetector
 ];
 
 export const SHORT_DETECTORS = [
   shootingStarDetector,
   pinBarSHORT,
+  dojiDetector,
   bearishEngulfing,
-  absorptionSHORT,
   railsSHORT,
+  absorptionSHORT,
   bearishMomentum,
-  insideBar
+  insideBarDetector
 ];

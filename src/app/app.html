@@ -14,7 +14,7 @@
   </div>
 
   <div class="signals-grid">
-    @for (sig of signalsList; track sig.symbol) {
+    @for (sig of signalsList; track sig.symbol + '_' + sig.timeframe) {
       <app-signal-card
         [sig]="sig"
         [marketType]="settings.marketType">

@@ -3,81 +3,71 @@ import { HistoricalLog } from '../models/models';
 
 @Injectable({ providedIn: 'root' })
 export class PositionTrackerService {
-  // Комісія: 0.05% Taker (вхід) + 0.05% Taker (вихід) = 0.1% (або 0.001 у десяткових)
   private readonly FEE_RATE = 0.001;
 
-  /**
-   * Обробляє кожен тік ціни та оновлює статуси позицій в історії.
-   * Повертає true, якщо хоча б одна позиція змінила статус (щоб оновити UI).
-   */
   public processTick(kline: any, history: HistoricalLog[]): boolean {
     let updated = false;
 
-    for (let log of history) {
-      // Ігноруємо старі логі з LocalStorage, якщо в них ще немає статусу
-      if (!log.status) {
-        log.status = 'PENDING';
-        log.isOpened = false;
-      }
+    // ✅ ДОДАЄМО ФІЛЬТР ЗА ТАЙМФРЕЙМОМ (log.timeframe === kline.timeframe)
+    const activeLogs = history.filter(log =>
+      log.symbol === kline.symbol &&
+      log.timeframe === kline.tf && // ГАРАНТІЯ: ТФ має збігатися на 100%
+      (log.status === 'PENDING' || log.status === 'OPENED')
+    );
 
-      // Нас цікавлять тільки активні угоди по поточній монеті
-      if (log.symbol !== kline.symbol || (log.status !== 'PENDING' && log.status !== 'OPENED')) {
-        continue;
-      }
+    if (activeLogs.length === 0) return false;
 
-      const price = kline.close;
+    for (let log of activeLogs) {
+      const high = kline.high;
+      const low = kline.low;
 
       if (log.type === 'LONG') {
         if (!log.isOpened) {
-          // ЧЕКАЄМО ВХОДУ В LONG
-          if (price <= log.sl) {
-            log.status = 'CANCELLED'; // Не відкрилась (впала до стопа раніше входу)
+          if (low <= log.sl) {
+            log.status = 'CANCELLED';
             updated = true;
-          } else if (price >= log.price) {
-            log.isOpened = true;      // Ціна пробила екстремум - ми в позиції!
-            log.status = 'OPENED';
-            updated = true;
-          }
-        } else {
-          // ВЖЕ У LONG ПОЗИЦІЇ
-          if (price >= log.tp) {
-            log.status = 'TP';
-            log.pnl = ((log.tp - log.price) / log.price * 100) - (this.FEE_RATE * 100);
-            updated = true;
-          } else if (price <= log.sl) {
-            log.status = 'SL';
-            log.pnl = ((log.sl - log.price) / log.price * 100) - (this.FEE_RATE * 100);
-            updated = true;
-          }
-        }
-      }
-
-      else if (log.type === 'SHORT') {
-        if (!log.isOpened) {
-          // ЧЕКАЄМО ВХОДУ В SHORT
-          if (price >= log.sl) {
-            log.status = 'CANCELLED'; // Пішла вгору, збила уявний стоп до входу
-            updated = true;
-          } else if (price <= log.price) {
+          } else if (high >= log.price) {
             log.isOpened = true;
             log.status = 'OPENED';
             updated = true;
           }
         } else {
-          // ВЖЕ У SHORT ПОЗИЦІЇ
-          if (price <= log.tp) {
-            log.status = 'TP';
-            log.pnl = ((log.price - log.tp) / log.price * 100) - (this.FEE_RATE * 100);
+          if (low <= log.sl) {
+            log.status = 'SL';
+            log.pnl = ((log.sl - log.price) / log.price * 100) - (this.FEE_RATE * 100);
             updated = true;
-          } else if (price >= log.sl) {
+          } else if (high >= log.tp) {
+            log.status = 'TP';
+            log.pnl = ((log.tp - log.price) / log.price * 100) - (this.FEE_RATE * 100);
+            updated = true;
+          }
+        }
+      }
+      else if (log.type === 'SHORT') {
+        if (!log.isOpened) {
+          // ✅ ТУТ БУЛА ПОМИЛКА: Переконайся, що low справді <= входу
+          if (high >= log.sl) {
+            log.status = 'CANCELLED';
+            updated = true;
+          } else if (low <= log.price) {
+            log.isOpened = true;
+            log.status = 'OPENED';
+            updated = true;
+          }
+        } else {
+          if (high >= log.sl) {
             log.status = 'SL';
             log.pnl = ((log.price - log.sl) / log.price * 100) - (this.FEE_RATE * 100);
+            updated = true;
+          } else if (low <= log.tp) {
+            log.status = 'TP';
+            log.pnl = ((log.price - log.tp) / log.price * 100) - (this.FEE_RATE * 100);
             updated = true;
           }
         }
       }
     }
 
-    return updated; // Якщо true - App компонент має зберегти Storage і оновити HTML
+    return updated;
   }
 }

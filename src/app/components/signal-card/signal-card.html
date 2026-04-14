@@ -3,11 +3,14 @@
      [style.opacity]="sig.isStale ? 0.5 : 1">
 
   <div class="card-header">
-    <div class="pair-info">
+    <div class="pair-info" style="display: flex; align-items: center; gap: 4px;">
       <div class="tf-badge" [attr.data-tf]="sig.timeframe">{{ sig.timeframe }}</div>
       <a [href]="getBinanceLink()" target="_blank" class="symbol-link">
         {{ sig.symbol }} ↗
       </a>
+      @if (sig.hasDivergence) {
+        <span title="AO Divergence Detected" style="font-size: 14px; cursor: help;">💎</span>
+      }
     </div>
     <div class="lvl-strength" [title]="'Сила рівня: ' + sig.lvlStrength">
       🏰 {{ sig.lvlStrength | number:'1.1-1' }}
@@ -22,7 +25,7 @@
   </div>
 
   <div class="price-display">
-    {{ sig.currentPrice | number:'1.2-6' }} <span class="unit">USDT</span>
+    {{ sig.currentPrice | number:'1.2-8' }} <span class="unit">USDT</span>
   </div>
 
   <div class="stats-row">
@@ -52,7 +55,7 @@
   </div>
 
   <div class="levels-row">
-    <div class="level">SL: <span class="red">{{ sig.stopLoss | number:'1.2-6' }}</span></div>
-    <div class="level text-right">TP: <span class="green">{{ sig.takeProfit | number:'1.2-6' }}</span></div>
+    <div class="level">SL: <span class="red">{{ sig.stopLoss | number:'1.2-8' }}</span></div>
+    <div class="level text-right">TP: <span class="green">{{ sig.takeProfit | number:'1.2-8' }}</span></div>
   </div>
 </div>

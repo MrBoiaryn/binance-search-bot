@@ -9,7 +9,7 @@ export interface KlineData {
   low?: number;
   close?: number;
   volume?: number;
-  openTime?: number; // Змінено з startTime на openTime для відповідності логіці
+  openTime?: number;
   side?: string;
   amount?: number;
 }
@@ -18,6 +18,7 @@ export interface TradeSignal {
   symbol: string;
   type: 'LONG' | 'SHORT';
   pattern: string;
+  entryPrice: number;    // ✅ Додано: чітка ціна входу (пробій)
   currentPrice: number;
   stopLoss: number;
   takeProfit: number;
@@ -26,11 +27,12 @@ export interface TradeSignal {
   liqAmount: number;
   timestamp: number;
   rr: number;
-  isStale?: boolean; // Для "режиму привидів"
-  quoteAsset: string; // ДОДАТИ
-  swingStrength: number; // Додано
-  timeframe: string;    // ✅ Додано
-  lvlStrength: number;  // ✅ Додано
+  isStale?: boolean;
+  quoteAsset: string;
+  swingStrength: number;
+  timeframe: string;
+  lvlStrength: number;
+  hasDivergence: boolean; // ✅ Додано: для відображення 💎
 }
 
 export interface HistoricalLog {
@@ -40,49 +42,48 @@ export interface HistoricalLog {
   quoteAsset: string;
   type: string;
   pattern: string;
-  price: number;
+  price: number;         // Це entryPrice
   sl: number;
   tp: number;
   rr: number;
   liq: number;
-  // ✅ НОВІ ПОЛЯ ДЛЯ ВІДСТЕЖЕННЯ ПОЗИЦІЙ
+
+  // --- Супровід позиції ---
   status?: 'PENDING' | 'OPENED' | 'CANCELLED' | 'SL' | 'TP';
   isOpened?: boolean;
   pnl?: number;
-  volMult: number;       // Додано
-  swingStrength: number; // Додано
-  timeframe: string;    // ✅ Додано
-  lvlStrength: number;  // ✅ Додано
-  initialSl?: number; // ✅ ДОДАЙ ЦЕЙ РЯДОК (опціональне поле)
-}
+  initialSl?: number;    // Для візуалізації трейлінгу
 
-// НОВИЙ ІНТЕРФЕЙС НАЛАШТУВАНЬ
+  // --- Метрики ---
+  volMult: number;
+  swingStrength: number;
+  timeframe: string;
+  lvlStrength: number;
+  hasDivergence?: boolean; // ✅ Додано: збереження 💎 в історії
+}
 
 export interface ScannerSettings {
   marketType: 'spot' | 'futures';
   timeframes: string[];
 
-  // --- ПАРАМЕТРИ ПЕРІОДУ ---
-  swingPeriod: number;      // Swing (Бари) - глибина пошуку рівня
-  trailingBars: number;     // Trailing (Бари)
+  // --- Параметри періоду ---
+  swingPeriod: number;
+  trailingBars: number;
 
-  // --- ДІАПАЗОНИ (MIN / MAX) ---
-  minVolMult: number;       // Об'єм Min
-  maxVolMult: number;       // Об'єм Max
+  // --- Фільтри діапазонів ---
+  minVolMult: number;
+  maxVolMult: number;
+  minSwing: number;
+  maxSwing: number;
+  minLvlStrength: number;
+  minRR: number;
+  maxRR: number;
 
-  minSwing: number;         // Swing % Min (відхилення від середньої)
-  maxSwing: number;         // Swing % Max (захист від перегріву)
-
-  minLvlStrength: number;   // Сила рівня L (тільки мінімум)
-
-  minRR: number;            // RR Min
-  maxRR: number;            // RR Max
-
-  maxClusterSize: number;   // Щільність (макс. однакових сигналів за хв)
-
+  // --- Захист та Профіт ---
+  maxClusterSize: number;
   minProfitThreshold: number;
 
-  // --- ВІЗУАЛ ТА ІНШЕ ---
+  // --- UI та Опції ---
   soundEnabled: boolean;
   holdStale: boolean;
   showLong: boolean;
@@ -91,10 +92,14 @@ export interface ScannerSettings {
 }
 
 export interface PatternContext {
-  kline: any;          // Поточна свічка (live)
-  lastCandle: any;     // Попередня закрита свічка
-  history: any[];      // Історія свічок
-  avgBody: number;     // Середнє тіло за останні N свічок
-  isLocalBottom: boolean; // ✅ Додай це
-  isLocalPeak: boolean;   // ✅ І це
+  kline: any;
+  lastCandle: any;
+  history: any[];
+  avgBody: number;
+  atr: number;             // ✅ Додано: Average True Range для стопів
+  isLocalBottom: boolean;
+  isLocalPeak: boolean;
+  isMotherBarBottom?: boolean; // ✅ Додано: Для патерну Inside Bar
+  isMotherBarPeak?: boolean;   // ✅ Додано: Для патерну Inside Bar
+  hasDivergence: boolean;  // ✅ Додано: Стан дивергенції AO
 }

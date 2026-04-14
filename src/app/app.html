@@ -28,8 +28,11 @@
   </div>
 
   <app-history-table
-    [history]="lastSignalsHistory"
-    [marketType]="settings.marketType"
+    [history]="displayHistory"
+    [totalPnL]="displayPnL"
+    [availableTfs]="settings.timeframes"
+    [activeFilter]="activeHistoryFilter"
+    (filterChanged)="setHistoryFilter($event)"
     (clearHistory)="onClearHistory()">
   </app-history-table>
 </div>

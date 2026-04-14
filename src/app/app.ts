@@ -27,6 +27,7 @@ export class App implements OnInit, OnDestroy {
   activeSignals: Map<string, TradeSignal> = new Map();
   signalsList: TradeSignal[] = [];
   lastSignalsHistory: HistoricalLog[] = [];
+  activeHistoryFilter: string = 'ALL';
 
   klineHistory: Map<string, any[]> = new Map();
   volumeAverages: Map<string, number> = new Map();
@@ -85,6 +86,22 @@ export class App implements OnInit, OnDestroy {
     this.scannerStop$.next();
     this.scannerStop$.complete();
     this.resetScannerState();
+  }
+
+  get displayHistory(): HistoricalLog[] {
+    if (this.activeHistoryFilter === 'ALL') {
+      return this.lastSignalsHistory;
+    }
+    return this.lastSignalsHistory.filter(log => log.timeframe === this.activeHistoryFilter);
+  }
+
+  get displayPnL(): number {
+    return this.displayHistory.reduce((acc, log) => acc + (log.pnl || 0), 0);
+  }
+
+  setHistoryFilter(tf: string) {
+    this.activeHistoryFilter = tf;
+    this.cdr.detectChanges();
   }
 
   private loadInitialConfig() {
@@ -470,7 +487,7 @@ export class App implements OnInit, OnDestroy {
       isOpened: false,
       hasDivergence: sig.hasDivergence
     });
-    if (this.lastSignalsHistory.length > 2000) this.lastSignalsHistory.pop();
+    if (this.lastSignalsHistory.length > 3000) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);
   }
 

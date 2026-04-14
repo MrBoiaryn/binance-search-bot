@@ -15,6 +15,22 @@
       </span>
     </div>
 
+    <div class="tf-filters" style="display: flex; gap: 8px; margin-left: auto; margin-right: 20px;">
+      <button class="tf-filter-btn"
+              [style.background]="activeFilter === 'ALL' ? '#f3ba2f' : '#2b3139'"
+              [style.color]="activeFilter === 'ALL' ? '#000' : '#848e9c'"
+              style="border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s;"
+              (click)="filterChanged.emit('ALL')">Усі ТФ</button>
+
+      @for (tf of availableTfs; track tf) {
+        <button class="tf-filter-btn"
+                [style.background]="activeFilter === tf ? '#f3ba2f' : '#2b3139'"
+                [style.color]="activeFilter === tf ? '#000' : '#848e9c'"
+                style="border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s;"
+                (click)="filterChanged.emit(tf)">{{tf}}</button>
+      }
+    </div>
+
     @if (history.length > 0) {
       <button class="clear-btn" (click)="clearHistory.emit()">
         🗑️ Очистити історію

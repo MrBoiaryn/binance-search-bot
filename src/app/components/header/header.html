@@ -93,6 +93,13 @@
           <input type="number" [(ngModel)]="localSettings.maxClusterSize" step="1">
         </div>
       </div>
+
+      <div class="params-row">
+        <div class="input-block">
+          <label>Min profit %</label>
+          <input type="number" [(ngModel)]="localSettings.minProfitThreshold" step="0.1">
+        </div>
+      </div>
     </div>
 
     <div class="settings-section">

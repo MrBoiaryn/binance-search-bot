@@ -57,6 +57,7 @@ export class App implements OnInit, OnDestroy {
     showShort: true,
     useDivergence: false,
     trailingBars: 5,
+    minProfitThreshold: 0.7,
   };
 
   constructor(
@@ -337,10 +338,11 @@ export class App implements OnInit, OnDestroy {
     if (!sig) return false;
     return (
       sig.lvlStrength >= this.settings.minLvlStrength &&
+      sig.profitPercent >= this.settings.minProfitThreshold &&
       sig.swingStrength >= this.settings.minSwing &&
       sig.swingStrength <= this.settings.maxSwing &&
-      sig.rr >= this.settings.minRR &&
-      sig.rr <= this.settings.maxRR
+      sig.rr >= this.settings.minRR
+      // && sig.rr <= this.settings.maxRR
     );
   }
 
@@ -371,34 +373,29 @@ export class App implements OnInit, OnDestroy {
     const effectiveRiskForTP = Math.max(actualRisk, minAllowedRisk);
 
     // 4. Розрахунок цілі (Тейк-Профіт)
+// 4. Розрахунок цілі (Тейк-Профіт)
     const levelData = this.findTrueLevel(history.slice(-500), type === 'LONG' ? 'RESISTANCE' : 'SUPPORT', entryPrice, tickSize);
 
     let tpPrice = levelData.price;
-    const minRR = this.settings.minRR;
-    const maxRR = this.settings.maxRR; // ✅ Тепер беремо з налаштувань
+    const { minRR, maxRR, minLvlStrength } = this.settings; // Деструктуризація для чистоти
 
     const requiredReward = effectiveRiskForTP * minRR;
     const maxAllowedReward = effectiveRiskForTP * maxRR;
 
-    // Перевірка напрямку Тейку відносно входу
-    if (type === 'LONG' && tpPrice <= entryPrice) {
-      tpPrice = entryPrice + requiredReward;
-    } else if (type === 'SHORT' && tpPrice >= entryPrice) {
-      tpPrice = entryPrice - requiredReward;
-    }
-
+    // Перевірка напрямку та мінімального порогу RR
     let naturalReward = Math.abs(tpPrice - entryPrice);
 
-    // Логіка конфлікту з рівнем
-    if (naturalReward < requiredReward) {
-      if (levelData.strength < 2.5) {
+    if (naturalReward < requiredReward || (type === 'LONG' ? tpPrice <= entryPrice : tpPrice >= entryPrice)) {
+      // Якщо рівень занадто близько або він слабкий
+      if (levelData.strength < minLvlStrength) {
         tpPrice = type === 'LONG' ? entryPrice + requiredReward : entryPrice - requiredReward;
       } else {
+        // Сильний рівень стоїть на заваді профіту - скасовуємо сигнал
         return null;
       }
     }
 
-    // Обмеження максимальної жадібності за допомогою maxRR
+    // ✅ ТВОЄ ЗРІЗАННЯ: Обмеження максимальної жадібності
     if (Math.abs(tpPrice - entryPrice) > maxAllowedReward) {
       tpPrice = type === 'LONG' ? entryPrice + maxAllowedReward : entryPrice - maxAllowedReward;
     }

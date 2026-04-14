@@ -80,6 +80,8 @@ export interface ScannerSettings {
 
   maxClusterSize: number;   // Щільність (макс. однакових сигналів за хв)
 
+  minProfitThreshold: number;
+
   // --- ВІЗУАЛ ТА ІНШЕ ---
   soundEnabled: boolean;
   holdStale: boolean;

@@ -2,26 +2,31 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { HistoricalLog } from '../../models/models';
 import { DecimalPipe } from '@angular/common';
 import { generateBinanceLink } from '../../utils/link-helper';
+import { MarketType, PositionStatus, SignalSide } from '../../core/constants/trade-enums';
 
 @Component({
   selector: 'app-history-table',
-  standalone: true, // додано для актуальності
+  standalone: true,
   imports: [DecimalPipe],
   templateUrl: './history-table.html',
   styleUrl: './history-table.scss',
 })
 export class HistoryTable {
+  public SignalSide = SignalSide;
+  public PositionStatus = PositionStatus;
+  public MarketType = MarketType;
+
   @Input() history: HistoricalLog[] = [];
-  @Input() marketType: 'spot' | 'futures' = 'futures';
+  @Input() marketType: MarketType = MarketType.FUTURES;
 
   // ✅ Приймаємо вже порахований PnL від App
   @Input() totalPnL: number = 0;
 
   @Input() availableTfs: string[] = [];
-  @Input() activeFilter: string = 'ALL';
+  @Input() activeFilter: PositionStatus | string = PositionStatus.ALL;
 
   @Output() clearHistory = new EventEmitter<void>();
-  @Output() filterChanged = new EventEmitter<string>();
+  @Output() filterChanged = new EventEmitter<PositionStatus | string>();
 
   getBinanceLink(log: HistoricalLog): string {
     return generateBinanceLink(

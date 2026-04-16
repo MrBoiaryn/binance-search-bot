@@ -1,5 +1,5 @@
 <div class="signal-card"
-     [style.borderTopColor]="sig.type === 'LONG' ? '#0ecb81' : '#f6465d'"
+     [style.borderTopColor]="sig.type === SignalSide.LONG ? '#0ecb81' : '#f6465d'"
      [style.opacity]="sig.isStale ? 0.5 : 1">
 
   <div class="card-header">
@@ -19,7 +19,7 @@
 
   <div class="pattern-row">
     <div class="pattern-badge">{{ sig.pattern }}</div>
-    <div class="side-badge" [style.color]="sig.type === 'LONG' ? '#0ecb81' : '#f6465d'">
+    <div class="side-badge" [style.color]="sig.type === SignalSide.LONG ? '#0ecb81' : '#f6465d'">
       {{ sig.type }}
     </div>
   </div>

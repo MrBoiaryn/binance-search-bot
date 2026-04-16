@@ -17,10 +17,10 @@
 
     <div class="tf-filters" style="display: flex; gap: 8px; margin-left: auto; margin-right: 20px;">
       <button class="tf-filter-btn"
-              [style.background]="activeFilter === 'ALL' ? '#f3ba2f' : '#2b3139'"
-              [style.color]="activeFilter === 'ALL' ? '#000' : '#848e9c'"
+              [style.background]="activeFilter === PositionStatus.ALL ? '#f3ba2f' : '#2b3139'"
+              [style.color]="activeFilter === PositionStatus.ALL ? '#000' : '#848e9c'"
               style="border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s;"
-              (click)="filterChanged.emit('ALL')">Усі ТФ</button>
+              (click)="filterChanged.emit(PositionStatus.ALL)">Усі ТФ</button>
 
       @for (tf of availableTfs; track tf) {
         <button class="tf-filter-btn"
@@ -73,7 +73,7 @@
 
             <td class="pattern-cell">{{log.pattern}}</td>
             <td>
-              <span class="side-cell" [style.color]="log.type === 'LONG' ? '#0ecb81' : '#f6465d'">{{log.type}}</span>
+              <span class="side-cell" [style.color]="log.type === SignalSide.LONG ? '#0ecb81' : '#f6465d'">{{log.type}}</span>
             </td>
 
             <td class="entry-cell">{{log.price | number:'1.2-8'}}</td>
@@ -122,19 +122,19 @@
             </td>
 
             <td class="status-cell text-center">
-              @if (log.status === 'PENDING' || !log.status) {
+              @if (log.status === PositionStatus.PENDING || !log.status) {
                 <span class="badge pending">Очікує входу</span>
               }
-              @if (log.status === 'OPENED') {
+              @if (log.status === PositionStatus.OPENED) {
                 <span class="badge opened">У позиції</span>
               }
-              @if (log.status === 'CANCELLED') {
+              @if (log.status === PositionStatus.CANCELLED) {
                 <span class="badge cancelled">Не відкрилась</span>
               }
-              @if (log.status === 'TP') {
+              @if (log.status === PositionStatus.TP) {
                 <span class="badge tp">Тейк: +{{log.pnl | number:'1.2-2'}}%</span>
               }
-              @if (log.status === 'SL') {
+              @if (log.status === PositionStatus.SL) {
                 <span class="badge sl">Стоп: {{log.pnl | number:'1.2-2'}}%</span>
               }
             </td>

@@ -1,5 +1,6 @@
 import { PatternContext, ScannerSettings } from '../../models/models';
 import { calculateAOForTick, calculateATR } from '../math/indicators';
+import { SignalSide } from '../constants/trade-enums';
 
 export function createPatternContext(kline: any, history: any[], settings: ScannerSettings): PatternContext {
   const lookback = settings.swingPeriod || 10;
@@ -19,16 +20,16 @@ export function createPatternContext(kline: any, history: any[], settings: Scann
     isLocalPeak: kline.high! >= Math.max(...lastN.map(k => k.high)),
     isMotherBarBottom: lastCandle && lastCandle.low <= Math.min(...lastNExclLast.map(k => k.low)),
     isMotherBarPeak: lastCandle && lastCandle.high >= Math.max(...lastNExclLast.map(k => k.high)),
-    hasDivergence: checkAODivergence(history, (kline.close > kline.open ? 'LONG' : 'SHORT'), currentAO)
+    hasDivergence: checkAODivergence(history, (kline.close > kline.open ? SignalSide.LONG : SignalSide.SHORT), currentAO)
   };
 }
 
-export function checkAODivergence(history: any[], type: 'LONG' | 'SHORT', currentAO: number): boolean {
+export function checkAODivergence(history: any[], type: SignalSide, currentAO: number): boolean {
   const len = history.length;
   if (len < 50) return false;
   const getAO = (i: number) => history[i]?.ao || 0;
 
-  if (type === 'LONG') {
+  if (type === SignalSide.LONG) {
     if (currentAO >= 0) return false;
     let recM = Infinity, recAO = Infinity, i = len - 1;
     for (; i >= len - 20; i--) {

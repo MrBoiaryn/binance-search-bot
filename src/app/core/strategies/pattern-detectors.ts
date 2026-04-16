@@ -1,6 +1,7 @@
 import { PatternContext } from '../../models/models';
+import { PatternType } from '../constants/trade-enums';
 
-export type DetectorFn = (ctx: PatternContext) => string | null;
+export type DetectorFn = (ctx: PatternContext) => PatternType | null;
 
 /**
  * --- ДОПОМІЖНІ МЕТРИКИ ---
@@ -31,11 +32,11 @@ export const dojiDetector: DetectorFn = ({ kline }) => {
   // 2. Тіло знаходиться посередині (тіні приблизно рівні, допуск 30%)
   const isCentral = Math.abs(upper - lower) <= (range * 0.3);
 
-  return (isSmallBody && isCentral) ? 'Doji' : null;
+  return (isSmallBody && isCentral) ? PatternType.DOJI : null;
 };
 
 export const insideBarDetector: DetectorFn = ({ kline, lastCandle }) => {
-  return (kline.high < lastCandle.high && kline.low > lastCandle.low) ? 'Inside' : null;
+  return (kline.high < lastCandle.high && kline.low > lastCandle.low) ? PatternType.INSIDE : null;
 };
 
 /**
@@ -52,20 +53,20 @@ export const hammerDetector: DetectorFn = ({ kline }) => {
   const isLongLowerShadow = getLowerShadow(kline) >= body * 2;
   const isShortUpperShadow = getUpperShadow(kline) <= range * 0.1;
 
-  return (isSmallBody && isLongLowerShadow && isShortUpperShadow) ? 'Hammer' : null;
+  return (isSmallBody && isLongLowerShadow && isShortUpperShadow) ? PatternType.HAMMER : null;
 };
 
 export const pinBarLONG: DetectorFn = ({ kline }) => {
   const range = getRange(kline);
   if (range === 0) return null;
   // Хвіст займає 2/3 свічки (66%), тіло дуже мале
-  return (getLowerShadow(kline) >= range * 0.66 && getBody(kline) <= range * 0.15) ? 'PinBar' : null;
+  return (getLowerShadow(kline) >= range * 0.66 && getBody(kline) <= range * 0.15) ? PatternType.PIN_BAR : null;
 };
 
 export const bullishEngulfing: DetectorFn = ({ kline, lastCandle }) => {
   // Поточне тіло більше попереднього і закриває його повністю
   return (isBullish(kline) && isBearish(lastCandle) &&
-    kline.close >= lastCandle.open && kline.open <= lastCandle.close) ? 'Engulfing' : null;
+    kline.close >= lastCandle.open && kline.open <= lastCandle.close) ? PatternType.ENGULFING : null;
 };
 
 export const railsLONG: DetectorFn = ({ kline, lastCandle, avgBody }) => {
@@ -80,17 +81,17 @@ export const railsLONG: DetectorFn = ({ kline, lastCandle, avgBody }) => {
   const areEqual = Math.abs(b1 - b2) < b1 * 0.1; // Тіла майже однакові
   const isClean = (b1 >= r1 * 0.85) && (b2 >= r2 * 0.85); // Тіні мінімальні
 
-  return (isBullish(kline) && isBearish(lastCandle) && areLarge && areEqual && isClean) ? 'Rails' : null;
+  return (isBullish(kline) && isBearish(lastCandle) && areLarge && areEqual && isClean) ? PatternType.RAILS : null;
 };
 
 export const absorptionLONG: DetectorFn = ({ kline, lastCandle }) => {
   // Перекриваємо весь High-Low попередньої свічки
-  return (isBullish(kline) && kline.close > lastCandle.high && kline.open < lastCandle.low) ? 'Absorption' : null;
+  return (isBullish(kline) && kline.close > lastCandle.high && kline.open < lastCandle.low) ? PatternType.ABSORPTION : null;
 };
 
 export const bullishMomentum: DetectorFn = ({ kline, avgBody }) => {
   const b = getBody(kline);
-  return (isBullish(kline) && b > avgBody * 2.0 && b >= getRange(kline) * 0.9) ? 'Momentum' : null;
+  return (isBullish(kline) && b > avgBody * 2.0 && b >= getRange(kline) * 0.9) ? PatternType.MOMENTUM : null;
 };
 
 /**
@@ -107,18 +108,18 @@ export const shootingStarDetector: DetectorFn = ({ kline }) => {
   const isLongUpperShadow = getUpperShadow(kline) >= body * 2;
   const isShortLowerShadow = getLowerShadow(kline) <= range * 0.1;
 
-  return (isSmallBody && isLongUpperShadow && isShortLowerShadow) ? 'Star' : null;
+  return (isSmallBody && isLongUpperShadow && isShortLowerShadow) ? PatternType.STAR : null;
 };
 
 export const pinBarSHORT: DetectorFn = ({ kline }) => {
   const range = getRange(kline);
   if (range === 0) return null;
-  return (getUpperShadow(kline) >= range * 0.66 && getBody(kline) <= range * 0.15) ? 'PinBar' : null;
+  return (getUpperShadow(kline) >= range * 0.66 && getBody(kline) <= range * 0.15) ? PatternType.PIN_BAR : null;
 };
 
 export const bearishEngulfing: DetectorFn = ({ kline, lastCandle }) => {
   return (isBearish(kline) && isBullish(lastCandle) &&
-    kline.close <= lastCandle.open && kline.open >= lastCandle.close) ? 'Engulfing' : null;
+    kline.close <= lastCandle.open && kline.open >= lastCandle.close) ? PatternType.ENGULFING : null;
 };
 
 export const railsSHORT: DetectorFn = ({ kline, lastCandle, avgBody }) => {
@@ -133,16 +134,16 @@ export const railsSHORT: DetectorFn = ({ kline, lastCandle, avgBody }) => {
   const areEqual = Math.abs(b1 - b2) < b1 * 0.1;
   const isClean = (b1 >= r1 * 0.85) && (b2 >= r2 * 0.85);
 
-  return (isBearish(kline) && isBullish(lastCandle) && areLarge && areEqual && isClean) ? 'Rails' : null;
+  return (isBearish(kline) && isBullish(lastCandle) && areLarge && areEqual && isClean) ? PatternType.RAILS : null;
 };
 
 export const absorptionSHORT: DetectorFn = ({ kline, lastCandle }) => {
-  return (isBearish(kline) && kline.close < lastCandle.low && kline.open > lastCandle.high) ? 'Absorption' : null;
+  return (isBearish(kline) && kline.close < lastCandle.low && kline.open > lastCandle.high) ? PatternType.ABSORPTION : null;
 };
 
 export const bearishMomentum: DetectorFn = ({ kline, avgBody }) => {
   const b = getBody(kline);
-  return (isBearish(kline) && b > avgBody * 2.0 && b >= getRange(kline) * 0.9) ? 'Momentum' : null;
+  return (isBearish(kline) && b > avgBody * 2.0 && b >= getRange(kline) * 0.9) ? PatternType.MOMENTUM : null;
 };
 
 /**

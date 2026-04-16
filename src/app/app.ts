@@ -6,6 +6,7 @@ import { from, of, delay, mergeMap, map, toArray, catchError, Subject, auditTime
 // Сервіси та константи
 import { BinanceSocketService } from './services/binance';
 import { TradeStorageService } from './services/trade-storage.service';
+import { MarketType, PositionStatus, SignalSide } from './core/constants/trade-enums';
 
 // Core
 import * as Indicators from './core/math/indicators';
@@ -31,7 +32,7 @@ export class App implements OnInit, OnDestroy {
   activeSignals: Map<string, TradeSignal> = new Map();
   signalsList: TradeSignal[] = [];
   lastSignalsHistory: HistoricalLog[] = [];
-  activeHistoryFilter: string = 'ALL';
+  activeHistoryFilter: PositionStatus | string = PositionStatus.ALL;
 
   klineHistory: Map<string, any[]> = new Map();
   volumeAverages: Map<string, number> = new Map();
@@ -46,7 +47,7 @@ export class App implements OnInit, OnDestroy {
 
   // --- НАЛАШТУВАННЯ ---
   settings: ScannerSettings = {
-    marketType: 'futures',
+    marketType: MarketType.FUTURES,
     timeframes: ['1m'],
     minVolMult: 1.5,
     maxVolMult: 4.0,
@@ -92,7 +93,7 @@ export class App implements OnInit, OnDestroy {
   }
 
   get displayHistory(): HistoricalLog[] {
-    if (this.activeHistoryFilter === 'ALL') {
+    if (this.activeHistoryFilter === PositionStatus.ALL) {
       return this.lastSignalsHistory;
     }
     return this.lastSignalsHistory.filter(log => log.timeframe === this.activeHistoryFilter);
@@ -285,7 +286,7 @@ export class App implements OnInit, OnDestroy {
       swingStrength: sig.swingStrength,
       lvlStrength: sig.lvlStrength,
       liq: sig.liqAmount,
-      status: 'PENDING',
+      status: PositionStatus.PENDING,
       quoteAsset: sig.quoteAsset,
       isOpened: false,
       hasDivergence: sig.hasDivergence
@@ -296,7 +297,7 @@ export class App implements OnInit, OnDestroy {
 
   private performUIUpdate() {
     this.signalsList = Array.from(this.activeSignals.values())
-      .filter(s => (s.type === 'LONG' && this.settings.showLong) || (s.type === 'SHORT' && this.settings.showShort))
+      .filter(s => (s.type === SignalSide.LONG && this.settings.showLong) || (s.type === SignalSide.SHORT && this.settings.showShort))
       .sort((a, b) => b.timestamp - a.timestamp);
     this.cdr.detectChanges();
   }

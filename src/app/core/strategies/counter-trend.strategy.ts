@@ -1,6 +1,7 @@
 import { PatternContext, ScannerSettings, TradeSignal } from '../../models/models';
 import { LONG_DETECTORS, SHORT_DETECTORS } from './pattern-detectors';
 import { findTrueLevel, roundToTick } from '../math/indicators';
+import { LevelType, PatternType, SignalSide } from '../constants/trade-enums';
 
 export function detectTradeSignal(
   kline: any,
@@ -17,7 +18,7 @@ export function detectTradeSignal(
 
   if (settings.useDivergence && !ctx.hasDivergence) return null;
 
-  const isTooDense = (name: string, type: string) => {
+  const isTooDense = (name: string, type: SignalSide) => {
     const key = `${name}_${type}_${tf}`;
     return (clusterTracker.get(key) || 0) >= settings.maxClusterSize;
   };
@@ -29,11 +30,11 @@ export function detectTradeSignal(
     for (const detect of LONG_DETECTORS) {
       const name = detect(ctx);
       if (name) {
-        const isAtBottom = (name === 'Inside') ? ctx.isMotherBarBottom : ctx.isLocalBottom;
+        const isAtBottom = (name === PatternType.INSIDE) ? ctx.isMotherBarBottom : ctx.isLocalBottom;
 
-        if (isAtBottom && !isTooDense(name, 'LONG')) {
+        if (isAtBottom && !isTooDense(name, SignalSide.LONG)) {
           const suffix = isAnomalousVol ? ' 🔥' : (ctx.hasDivergence ? ' 💎' : '');
-          const signal = createSignal(kline, 'LONG', `${name}${suffix}`, volMult, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
+          const signal = createSignal(kline, SignalSide.LONG, `${name}${suffix}`, volMult, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
 
           if (isValidSignal(signal, settings)) {
             clusterTracker.set(`${name}_LONG_${tf}`, (clusterTracker.get(`${name}_LONG_${tf}`) || 0) + 1);
@@ -49,11 +50,11 @@ export function detectTradeSignal(
     for (const detect of SHORT_DETECTORS) {
       const name = detect(ctx);
       if (name) {
-        const isAtPeak = (name === 'Inside') ? ctx.isMotherBarPeak : ctx.isLocalPeak;
+        const isAtPeak = (name === PatternType.INSIDE) ? ctx.isMotherBarPeak : ctx.isLocalPeak;
 
-        if (isAtPeak && !isTooDense(name, 'SHORT')) {
+        if (isAtPeak && !isTooDense(name, SignalSide.SHORT)) {
           const suffix = isAnomalousVol ? ' 🔥' : (ctx.hasDivergence ? ' 💎' : '');
-          const signal = createSignal(kline, 'SHORT', `${name}${suffix}`, volMult, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
+          const signal = createSignal(kline, SignalSide.SHORT, `${name}${suffix}`, volMult, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
 
           if (isValidSignal(signal, settings)) {
             clusterTracker.set(`${name}_SHORT_${tf}`, (clusterTracker.get(`${name}_SHORT_${tf}`) || 0) + 1);
@@ -79,7 +80,7 @@ export function isValidSignal(sig: TradeSignal | null, settings: ScannerSettings
 
 export function createSignal(
   kline: any,
-  type: 'LONG' | 'SHORT',
+  type: SignalSide,
   pattern: string,
   vol: number,
   tf: string,
@@ -95,7 +96,7 @@ export function createSignal(
 
   // 1. Точка входу (з ATR відступом)
   const entryOffset = atr * 0.1;
-  const rawEntryPrice = type === 'LONG' ? kline.high + entryOffset : kline.low - entryOffset;
+  const rawEntryPrice = type === SignalSide.LONG ? kline.high + entryOffset : kline.low - entryOffset;
   const entryPrice = roundToTick(rawEntryPrice, tickSize);
 
   // 2. Відхилення
@@ -109,14 +110,14 @@ export function createSignal(
   const actualRisk = Math.abs(entryPrice - sl) || tickSize;
 
   // 4. Тейк-Профіт (Жорстка математика)
-  const levelData = findTrueLevel(history.slice(-500), type === 'LONG' ? 'RESISTANCE' : 'SUPPORT', entryPrice, tickSize);
+  const levelData = findTrueLevel(history.slice(-500), type === SignalSide.LONG ? LevelType.RESISTANCE : LevelType.SUPPORT, entryPrice, tickSize);
   const { minRR, maxRR, minLvlStrength } = settings;
 
   const requiredReward = actualRisk * minRR;
   const maxAllowedReward = actualRisk * maxRR;
 
   // ✅ Жорстко математичний мінімальний Тейк (без милиць з додаванням тіків)
-  const minMathTp = type === 'LONG'
+  const minMathTp = type === SignalSide.LONG
     ? entryPrice + requiredReward
     : entryPrice - requiredReward;
 
@@ -124,7 +125,7 @@ export function createSignal(
   let naturalReward = Math.abs(tpPrice - entryPrice);
 
   // Конфлікт рівня і RR
-  if (naturalReward < requiredReward || (type === 'LONG' ? tpPrice <= entryPrice : tpPrice >= entryPrice)) {
+  if (naturalReward < requiredReward || (type === SignalSide.LONG ? tpPrice <= entryPrice : tpPrice >= entryPrice)) {
     if (levelData.strength < minLvlStrength) {
       tpPrice = minMathTp; // Застосовуємо залізну математику
     } else {
@@ -134,7 +135,7 @@ export function createSignal(
 
   // Зрізання максимальної жадібності
   if (Math.abs(tpPrice - entryPrice) > maxAllowedReward) {
-    tpPrice = type === 'LONG' ? entryPrice + maxAllowedReward : entryPrice - maxAllowedReward;
+    tpPrice = type === SignalSide.LONG ? entryPrice + maxAllowedReward : entryPrice - maxAllowedReward;
   }
 
   const tp = roundToTick(tpPrice, tickSize);
@@ -157,15 +158,15 @@ export function createSignal(
   };
 }
 
-export function calculateSL(kline: any, history: any[], type: 'LONG' | 'SHORT', tick: number, pattern: string, atr: number): number {
+export function calculateSL(kline: any, history: any[], type: SignalSide, tick: number, pattern: string, atr: number): number {
   const slOffset = atr * 0.15;
-  if (pattern.includes('PinBar') || pattern.includes('Hammer') || pattern.includes('Star')) {
-    return type === 'LONG'
+  if (pattern.includes(PatternType.PIN_BAR) || pattern.includes(PatternType.HAMMER) || pattern.includes(PatternType.STAR)) {
+    return type === SignalSide.LONG
       ? roundToTick(kline.low - slOffset, tick)
       : roundToTick(kline.high + slOffset, tick);
   }
   const candles = history.slice(-3);
-  return type === 'LONG'
+  return type === SignalSide.LONG
     ? roundToTick(Math.min(...candles.map(k => k.low), kline.low) - slOffset, tick)
     : roundToTick(Math.max(...candles.map(k => k.high), kline.high) + slOffset, tick);
 }

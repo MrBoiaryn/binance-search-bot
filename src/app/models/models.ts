@@ -1,4 +1,4 @@
-// src/app/models/models.ts
+import { MarketType, PositionStatus, SignalSide } from '../core/constants/trade-enums';
 
 export interface KlineData {
   type: 'kline' | 'liquidation';
@@ -16,9 +16,9 @@ export interface KlineData {
 
 export interface TradeSignal {
   symbol: string;
-  type: 'LONG' | 'SHORT';
+  type: SignalSide;
   pattern: string;
-  entryPrice: number;    // ✅ Додано: чітка ціна входу (пробій)
+  entryPrice: number;
   currentPrice: number;
   stopLoss: number;
   takeProfit: number;
@@ -32,7 +32,7 @@ export interface TradeSignal {
   swingStrength: number;
   timeframe: string;
   lvlStrength: number;
-  hasDivergence: boolean; // ✅ Додано: для відображення 💎
+  hasDivergence: boolean;
 }
 
 export interface HistoricalLog {
@@ -40,37 +40,33 @@ export interface HistoricalLog {
   time: string;
   symbol: string;
   quoteAsset: string;
-  type: string;
+  type: SignalSide | string;
   pattern: string;
-  price: number;         // Це entryPrice
+  price: number;
   sl: number;
   tp: number;
   rr: number;
   liq: number;
 
-  // --- Супровід позиції ---
-  status?: 'PENDING' | 'OPENED' | 'CANCELLED' | 'SL' | 'TP';
+  status?: PositionStatus;
   isOpened?: boolean;
   pnl?: number;
-  initialSl?: number;    // Для візуалізації трейлінгу
+  initialSl?: number;
 
-  // --- Метрики ---
   volMult: number;
   swingStrength: number;
   timeframe: string;
   lvlStrength: number;
-  hasDivergence?: boolean; // ✅ Додано: збереження 💎 в історії
+  hasDivergence?: boolean;
 }
 
 export interface ScannerSettings {
-  marketType: 'spot' | 'futures';
+  marketType: MarketType;
   timeframes: string[];
 
-  // --- Параметри періоду ---
   swingPeriod: number;
   trailingBars: number;
 
-  // --- Фільтри діапазонів ---
   minVolMult: number;
   maxVolMult: number;
   minSwing: number;
@@ -79,11 +75,9 @@ export interface ScannerSettings {
   minRR: number;
   maxRR: number;
 
-  // --- Захист та Профіт ---
   maxClusterSize: number;
   minProfitThreshold: number;
 
-  // --- UI та Опції ---
   soundEnabled: boolean;
   holdStale: boolean;
   showLong: boolean;
@@ -96,10 +90,10 @@ export interface PatternContext {
   lastCandle: any;
   history: any[];
   avgBody: number;
-  atr: number;             // ✅ Додано: Average True Range для стопів
+  atr: number;
   isLocalBottom: boolean;
   isLocalPeak: boolean;
-  isMotherBarBottom?: boolean; // ✅ Додано: Для патерну Inside Bar
-  isMotherBarPeak?: boolean;   // ✅ Додано: Для патерну Inside Bar
-  hasDivergence: boolean;  // ✅ Додано: Стан дивергенції AO
+  isMotherBarBottom?: boolean;
+  isMotherBarPeak?: boolean;
+  hasDivergence: boolean;
 }

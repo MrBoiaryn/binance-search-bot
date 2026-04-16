@@ -158,8 +158,8 @@ export class App implements OnInit, OnDestroy {
       mergeMap(p => this.socketService.getKlinesHistory(p, tf, this.settings.marketType).pipe(
         map(data => ({ symbol: p.toUpperCase(), tf, data })),
         catchError(() => of(null)),
-        delay(200)
-      ), 5),
+        delay(300)
+      ), 3),
       toArray(),
       takeUntil(this.destroy$),
       takeUntil(this.scannerStop$)

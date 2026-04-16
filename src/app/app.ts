@@ -6,11 +6,15 @@ import { from, of, delay, mergeMap, map, toArray, catchError, Subject, auditTime
 // Сервіси та константи
 import { BinanceSocketService } from './services/binance';
 import { TradeStorageService } from './services/trade-storage.service';
-import { PositionTrackerService } from './services/position-tracker.service';
-import * as Detectors from './constants/pattern-detectors';
+
+// Core
+import * as Indicators from './core/math/indicators';
+import * as PositionManager from './core/managers/position-manager';
+import * as ScannerContext from './core/engine/scanner-context';
+import * as Strategy from './core/strategies/counter-trend.strategy';
 
 // Моделі та компоненти
-import { HistoricalLog, PatternContext, ScannerSettings, TradeSignal } from './models/models';
+import { HistoricalLog, ScannerSettings, TradeSignal } from './models/models';
 import { Header } from './components/header/header';
 import { SignalCard } from './components/signal-card/signal-card';
 import { HistoryTable } from './components/history-table/history-table';
@@ -57,7 +61,7 @@ export class App implements OnInit, OnDestroy {
     holdStale: false,
     showLong: true,
     showShort: true,
-    useDivergence: false, // Тільки з дивергенцією, якщо увімкнено
+    useDivergence: false,
     trailingBars: 5,
     minProfitThreshold: 0.7,
   };
@@ -66,7 +70,6 @@ export class App implements OnInit, OnDestroy {
     private socketService: BinanceSocketService,
     private cdr: ChangeDetectorRef,
     private storage: TradeStorageService,
-    private tracker: PositionTrackerService,
   ) {
     interval(60000).pipe(takeUntil(this.destroy$)).subscribe(() => this.clusterTracker.clear());
     this.uiUpdate$.pipe(
@@ -176,7 +179,7 @@ export class App implements OnInit, OnDestroy {
         }));
 
         for (let i = 33; i < formatted.length; i++) {
-          formatted[i].ao = this.calculateAO(formatted, i);
+          formatted[i].ao = Indicators.calculateAO(formatted, i);
         }
 
         this.klineHistory.set(key, formatted);
@@ -218,7 +221,7 @@ export class App implements OnInit, OnDestroy {
     const history = this.klineHistory.get(key) || [];
     const tickSize = this.symbolTickSizes.get(symbol) || 0.0001;
 
-    const isHistoryUpdated = this.tracker.processTick(
+    const isHistoryUpdated = PositionManager.processTick(
       { ...kline, tf },
       this.lastSignalsHistory,
       history,
@@ -251,10 +254,10 @@ export class App implements OnInit, OnDestroy {
     if (history.length < 50) return;
 
     const avgVol = this.volumeAverages.get(key) || kline.volume!;
-    const volMult = this.calculateVolMult(kline, tf, avgVol);
+    const volMult = Indicators.calculateVolMult(kline, tf, avgVol);
 
-    const ctx = this.createPatternContext(kline, history);
-    const signal = this.detectTradeSignal(kline, volMult, ctx, history, tf);
+    const ctx = ScannerContext.createPatternContext(kline, history, this.settings);
+    const signal = Strategy.detectTradeSignal(kline, volMult, ctx, history, tf, this.settings, this.clusterTracker, this.symbolTickSizes, this.symbolQuotes);
 
     if (signal) {
       const isNew = !this.activeSignals.has(key);
@@ -264,206 +267,6 @@ export class App implements OnInit, OnDestroy {
       this.activeSignals.delete(key);
     }
     this.uiUpdate$.next();
-  }
-
-  private detectTradeSignal(kline: any, volMult: number, ctx: PatternContext, history: any[], tf: string): TradeSignal | null {
-    if (volMult < this.settings.minVolMult || volMult > this.settings.maxVolMult) return null;
-
-    if (this.settings.useDivergence && !ctx.hasDivergence) return null;
-
-    const isTooDense = (name: string, type: string) => {
-      const key = `${name}_${type}_${tf}`;
-      return (this.clusterTracker.get(key) || 0) >= this.settings.maxClusterSize;
-    };
-
-    const isAnomalousVol = volMult >= (this.settings.minVolMult * 2.5);
-
-    // LONG
-    if (this.settings.showLong) {
-      for (const detect of Detectors.LONG_DETECTORS) {
-        const name = detect(ctx);
-        if (name) {
-          const isAtBottom = (name === 'Inside') ? ctx.isMotherBarBottom : ctx.isLocalBottom;
-
-          if (isAtBottom && !isTooDense(name, 'LONG')) {
-            // ✅ Повертаємо візуальні емодзі
-            const suffix = isAnomalousVol ? ' 🔥' : (ctx.hasDivergence ? ' 💎' : '');
-            const signal = this.createSignal(kline, 'LONG', `${name}${suffix}`, volMult, tf, history, ctx.atr, ctx.hasDivergence);
-
-            if (this.isValidSignal(signal)) {
-              this.clusterTracker.set(`${name}_LONG_${tf}`, (this.clusterTracker.get(`${name}_LONG_${tf}`) || 0) + 1);
-              return signal;
-            }
-          }
-        }
-      }
-    }
-
-    // SHORT
-    if (this.settings.showShort) {
-      for (const detect of Detectors.SHORT_DETECTORS) {
-        const name = detect(ctx);
-        if (name) {
-          const isAtPeak = (name === 'Inside') ? ctx.isMotherBarPeak : ctx.isLocalPeak;
-
-          if (isAtPeak && !isTooDense(name, 'SHORT')) {
-            // ✅ Повертаємо візуальні емодзі
-            const suffix = isAnomalousVol ? ' 🔥' : (ctx.hasDivergence ? ' 💎' : '');
-            const signal = this.createSignal(kline, 'SHORT', `${name}${suffix}`, volMult, tf, history, ctx.atr, ctx.hasDivergence);
-
-            if (this.isValidSignal(signal)) {
-              this.clusterTracker.set(`${name}_SHORT_${tf}`, (this.clusterTracker.get(`${name}_SHORT_${tf}`) || 0) + 1);
-              return signal;
-            }
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  private isValidSignal(sig: TradeSignal | null): boolean {
-    if (!sig) return false;
-    return (
-      sig.lvlStrength >= this.settings.minLvlStrength &&
-      sig.profitPercent >= this.settings.minProfitThreshold &&
-      sig.swingStrength >= this.settings.minSwing &&
-      sig.swingStrength <= this.settings.maxSwing &&
-      sig.rr >= this.settings.minRR
-    );
-  }
-
-  private createSignal(kline: any, type: 'LONG' | 'SHORT', pattern: string, vol: number, tf: string, history: any[], atr: number, hasDivergence: boolean): TradeSignal | null {
-    const symbol = kline.symbol.toUpperCase();
-    const tickSize = this.symbolTickSizes.get(symbol) || 0.0001;
-
-    // 1. Точка входу (з ATR відступом)
-    const entryOffset = atr * 0.1;
-    const rawEntryPrice = type === 'LONG' ? kline.high + entryOffset : kline.low - entryOffset;
-    const entryPrice = this.roundToTick(rawEntryPrice, tickSize);
-
-    // 2. Відхилення
-    const typicalPrice = (kline.high + kline.low + kline.close) / 3;
-    const avgPrice = history.slice(-20).reduce((acc, k) => acc + k.close, 0) / 20;
-    const maDeviation = Math.abs((typicalPrice - avgPrice) / avgPrice) * 100;
-    if (maDeviation < this.settings.minSwing) return null;
-
-    // 3. Стоп-Лосс
-    const sl = this.calculateSL(kline, history, type, tickSize, pattern, atr);
-    const actualRisk = Math.abs(entryPrice - sl) || tickSize;
-
-    // 4. Тейк-Профіт (Жорстка математика)
-    const levelData = this.findTrueLevel(history.slice(-500), type === 'LONG' ? 'RESISTANCE' : 'SUPPORT', entryPrice, tickSize);
-    const { minRR, maxRR, minLvlStrength } = this.settings;
-
-    const requiredReward = actualRisk * minRR;
-    const maxAllowedReward = actualRisk * maxRR;
-
-    // ✅ Жорстко математичний мінімальний Тейк (без милиць з додаванням тіків)
-    const minMathTp = type === 'LONG'
-      ? entryPrice + requiredReward
-      : entryPrice - requiredReward;
-
-    let tpPrice = levelData.price;
-    let naturalReward = Math.abs(tpPrice - entryPrice);
-
-    // Конфлікт рівня і RR
-    if (naturalReward < requiredReward || (type === 'LONG' ? tpPrice <= entryPrice : tpPrice >= entryPrice)) {
-      if (levelData.strength < minLvlStrength) {
-        tpPrice = minMathTp; // Застосовуємо залізну математику
-      } else {
-        return null;
-      }
-    }
-
-    // Зрізання максимальної жадібності
-    if (Math.abs(tpPrice - entryPrice) > maxAllowedReward) {
-      tpPrice = type === 'LONG' ? entryPrice + maxAllowedReward : entryPrice - maxAllowedReward;
-    }
-
-    const tp = this.roundToTick(tpPrice, tickSize);
-
-    return {
-      symbol, type, pattern, timeframe: tf,
-      entryPrice,
-      currentPrice: kline.close,
-      stopLoss: sl,
-      takeProfit: tp,
-      lvlStrength: levelData.strength,
-      swingStrength: maDeviation,
-      volumeMultiplier: vol,
-      liqAmount: 0,
-      timestamp: Date.now(),
-      quoteAsset: this.symbolQuotes.get(symbol) || 'USDT',
-      profitPercent: (Math.abs(tp - entryPrice) / entryPrice) * 100,
-      rr: Math.abs(tp - entryPrice) / actualRisk,
-      hasDivergence
-    };
-  }
-
-  private findTrueLevel(history: any[], type: 'SUPPORT' | 'RESISTANCE', currentPrice: number, tickSize: number) {
-    if (history.length === 0) return { price: currentPrice, strength: 0 };
-    const prices = history.map(k => type === 'RESISTANCE' ? k.high : k.low);
-    const minP = Math.min(...prices, currentPrice);
-    const maxP = Math.max(...prices, currentPrice);
-    const binSize = Math.max((maxP - minP) / 100, tickSize * 2);
-    const bins = new Array(Math.ceil((maxP - minP) / binSize) + 1).fill(0);
-
-    history.forEach(k => {
-      const idx = Math.floor(((type === 'RESISTANCE' ? k.high : k.low) - minP) / binSize);
-      if (idx >= 0 && idx < bins.length) bins[idx] += k.volume;
-    });
-
-    let bestIdx = -1, maxVol = 0;
-    bins.forEach((v, i) => {
-      const p = minP + i * binSize;
-      if (type === 'RESISTANCE' && p <= currentPrice) return;
-      if (type === 'SUPPORT' && p >= currentPrice) return;
-      if (v > maxVol) { maxVol = v; bestIdx = i; }
-    });
-
-    if (bestIdx === -1) return { price: type === 'RESISTANCE' ? maxP : minP, strength: 0 };
-    const avgVol = bins.reduce((a, b) => a + b, 0) / bins.length;
-    return { price: minP + bestIdx * binSize, strength: maxVol / (avgVol || 1) };
-  }
-
-  private calculateAO(history: any[], index: number): number {
-    if (index < 33) return 0;
-    const mid = (i: number) => (history[i].high + history[i].low) / 2;
-    let s5 = 0; for (let i = index - 4; i <= index; i++) s5 += mid(i);
-    let s34 = 0; for (let i = index - 33; i <= index; i++) s34 += mid(i);
-    return (s5 / 5) - (s34 / 34);
-  }
-
-  private calculateAOForTick(history: any[], kline: any): number {
-    const mid = (i: number) => (history[i].high + history[i].low) / 2;
-    const currentMid = (kline.high + kline.low) / 2;
-    let s5 = currentMid; for (let i = history.length - 1; i > history.length - 5; i--) s5 += mid(i);
-    let s34 = currentMid; for (let i = history.length - 1; i > history.length - 34; i--) s34 += mid(i);
-    return (s5 / 5) - (s34 / 34);
-  }
-
-  private roundToTick(price: number, tick: number): number {
-    const p = Math.max(0, -Math.floor(Math.log10(tick)));
-    return parseFloat((Math.round(price / tick) * tick).toFixed(p));
-  }
-
-  private calculateVolMult(kline: any, tf: string, avgVol: number): number {
-    if (!kline.openTime || avgVol === 0) return kline.volume / (avgVol || 1);
-    const elapsed = Date.now() - kline.openTime;
-    const total = this.getTfMs(tf);
-    if (kline.isClosed || elapsed < total / 2) return kline.volume / avgVol;
-    return (kline.volume / Math.min(0.99, elapsed / total)) / avgVol;
-  }
-
-  private getTfMs(tf: string): number {
-    const unit = tf.slice(-1), value = parseInt(tf);
-    switch (unit) {
-      case 'm': return value * 60 * 1000;
-      case 'h': return value * 60 * 60 * 1000;
-      case 'd': return value * 24 * 60 * 60 * 1000;
-      default: return 60 * 1000;
-    }
   }
 
   private addSignalToHistory(kline: any, sig: TradeSignal, tf: string) {
@@ -507,84 +310,6 @@ export class App implements OnInit, OnDestroy {
     });
   }
 
-  private calculateATR(history: any[], period: number = 14): number {
-    if (history.length < period) return 0;
-    const slices = history.slice(-period);
-    const ranges = slices.map(k => k.high - k.low);
-    return ranges.reduce((a, b) => a + b, 0) / period;
-  }
-
-  private createPatternContext(kline: any, history: any[]): PatternContext {
-    const lookback = this.settings.swingPeriod || 10;
-    const lastN = history.slice(-lookback);
-    const lastCandle = history[history.length - 1];
-
-    const historyExclLast = history.slice(0, -1);
-    const lastNExclLast = historyExclLast.slice(-lookback);
-
-    const currentAO = this.calculateAOForTick(history, kline);
-    const atr = this.calculateATR(history, 14);
-
-    return {
-      kline, lastCandle, history, atr,
-      avgBody: history.slice(-10).reduce((acc, k) => acc + Math.abs(k.close - k.open), 0) / 10,
-      isLocalBottom: kline.low! <= Math.min(...lastN.map(k => k.low)),
-      isLocalPeak: kline.high! >= Math.max(...lastN.map(k => k.high)),
-      isMotherBarBottom: lastCandle && lastCandle.low <= Math.min(...lastNExclLast.map(k => k.low)),
-      isMotherBarPeak: lastCandle && lastCandle.high >= Math.max(...lastNExclLast.map(k => k.high)),
-      hasDivergence: this.checkAODivergence(history, (kline.close > kline.open ? 'LONG' : 'SHORT'), currentAO)
-    };
-  }
-
-  private checkAODivergence(history: any[], type: 'LONG' | 'SHORT', currentAO: number): boolean {
-    const len = history.length;
-    if (len < 50) return false;
-    const getAO = (i: number) => history[i]?.ao || 0;
-
-    if (type === 'LONG') {
-      if (currentAO >= 0) return false;
-      let recM = Infinity, recAO = Infinity, i = len - 1;
-      for (; i >= len - 20; i--) {
-        if (history[i].low < recM) recM = history[i].low;
-        if (getAO(i) < recAO) recAO = getAO(i);
-        if (getAO(i) > 0) break;
-      }
-      let pastM = Infinity, pastAO = Infinity;
-      for (; i >= len - 50; i--) {
-        if (history[i].low < pastM) pastM = history[i].low;
-        if (getAO(i) < pastAO) pastAO = getAO(i);
-      }
-      return (recM < pastM) && (recAO > pastAO);
-    } else {
-      if (currentAO <= 0) return false;
-      let recM = -Infinity, recAO = -Infinity, i = len - 1;
-      for (; i >= len - 20; i--) {
-        if (history[i].high > recM) recM = history[i].high;
-        if (getAO(i) > recAO) recAO = getAO(i);
-        if (getAO(i) < 0) break;
-      }
-      let pastM = -Infinity, pastAO = -Infinity;
-      for (; i >= len - 50; i--) {
-        if (history[i].high > pastM) pastM = history[i].high;
-        if (getAO(i) > pastAO) pastAO = getAO(i);
-      }
-      return (recM > pastM) && (recAO < pastAO);
-    }
-  }
-
-  private calculateSL(kline: any, history: any[], type: 'LONG' | 'SHORT', tick: number, pattern: string, atr: number): number {
-    const slOffset = atr * 0.15;
-    if (['PinBar', 'Hammer', 'Star'].includes(pattern)) {
-      return type === 'LONG'
-        ? this.roundToTick(kline.low - slOffset, tick)
-        : this.roundToTick(kline.high + slOffset, tick);
-    }
-    const candles = history.slice(-3);
-    return type === 'LONG'
-      ? this.roundToTick(Math.min(...candles.map(k => k.low), kline.low) - slOffset, tick)
-      : this.roundToTick(Math.max(...candles.map(k => k.high), kline.high) + slOffset, tick);
-  }
-
   private updateKlineHistory(key: string, kline: any) {
     let h = this.klineHistory.get(key) || [];
     const newCandle = {
@@ -592,7 +317,7 @@ export class App implements OnInit, OnDestroy {
     };
     h.push(newCandle);
     if (h.length > 600) h.shift();
-    newCandle.ao = this.calculateAO(h, h.length - 1);
+    newCandle.ao = Indicators.calculateAO(h, h.length - 1);
     this.klineHistory.set(key, h);
   }
 

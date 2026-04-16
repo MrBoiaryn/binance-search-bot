@@ -1,21 +1,26 @@
 import { Injectable, isDevMode } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, Subject } from 'rxjs';
+import { Observable } from 'rxjs';
 import { KlineData } from '../models/models';
+import { BinanceEventType, MarketType } from '../core/constants/trade-enums';
 
 @Injectable({ providedIn: 'root' })
 export class BinanceSocketService {
   private sockets: Map<string, WebSocket> = new Map();
 
+  // Виносимо константи, щоб не було хардкоду в методах
+  private readonly QUOTE_ASSET = 'USDT';
   private readonly IGNORED_COINS = [
-    'USDC', 'FDUSD', 'TUSD', 'BUSD', 'USDP', // Інші стейблкоїни
-    'EUR', 'AEUR', 'TRY', 'GBP', 'RUB', 'XAU'       // Фіатні валюти
+    'USDC', 'FDUSD', 'TUSD', 'BUSD', 'USDP',
+    'EUR', 'AEUR', 'TRY', 'GBP', 'RUB', 'XAU'
   ];
 
   constructor(private http: HttpClient) {}
 
-  // Отримання топ-пар для моніторингу
-  getTopPairs(market: 'spot' | 'futures'): Observable<string[]> {
+  /**
+   * Отримання топ-пар за об'ємом
+   */
+  getTopPairs(market: MarketType): Observable<string[]> {
     const baseUrl = this.getBaseUrl(market);
 
     return new Observable(observer => {
@@ -23,8 +28,8 @@ export class BinanceSocketService {
         next: (data) => {
           const topPairs = data
             .filter(t => {
-              if (!t.symbol.endsWith('USDT')) return false;
-              const baseCoin = t.symbol.replace('USDT', '');
+              if (!t.symbol.endsWith(this.QUOTE_ASSET)) return false;
+              const baseCoin = t.symbol.replace(this.QUOTE_ASSET, '');
               if (this.IGNORED_COINS.includes(baseCoin)) return false;
               return true;
             })
@@ -40,15 +45,23 @@ export class BinanceSocketService {
     });
   }
 
-  // Підключення до WebSocket Binance
-  connectKlines(pairs: string[], timeframe: string, market: 'spot' | 'futures'): Observable<KlineData> {
+  /**
+   * Підключення до WebSocket
+   */
+  connectKlines(pairs: string[], timeframe: string, market: MarketType): Observable<KlineData> {
     const socketKey = `${market}_${timeframe}`;
     this.closeSocketByKey(socketKey);
 
     return new Observable<KlineData>(observer => {
-      const baseUrl = market === 'futures' ? 'wss://fstream.binance.com' : 'wss://stream.binance.com:9443';
+      const isFutures = market === MarketType.FUTURES;
+      const baseUrl = isFutures ? 'wss://fstream.binance.com' : 'wss://stream.binance.com:9443';
+
       let streamsList = pairs.map(p => `${p}@kline_${timeframe}`);
-      if (market === 'futures') streamsList.push('!forceOrder@arr');
+
+      // Додаємо потік ліквідацій тільки для ф'ючерсів
+      if (isFutures) {
+        streamsList.push('!forceOrder@arr');
+      }
 
       const wsUrl = `${baseUrl}/stream?streams=${streamsList.join('/')}`;
       const ws = new WebSocket(wsUrl);
@@ -58,10 +71,13 @@ export class BinanceSocketService {
         const parsed = JSON.parse(event.data);
         if (!parsed.data) return;
 
-        if (parsed.data.e === 'kline') {
+        // Використовуємо BinanceEventType для ідентифікації подій
+        const eventType = parsed.data.e;
+
+        if (eventType === BinanceEventType.KLINE) {
           const k = parsed.data.k;
           observer.next({
-            type: 'kline',
+            type: BinanceEventType.KLINE,
             symbol: parsed.data.s,
             isClosed: k.x,
             open: parseFloat(k.o),
@@ -69,12 +85,12 @@ export class BinanceSocketService {
             low: parseFloat(k.l),
             close: parseFloat(k.c),
             volume: parseFloat(k.v),
-            openTime: k.t // Виправлено: використовуємо openTime
+            openTime: k.t
           });
-        } else if (parsed.data.e === 'forceOrder') {
+        } else if (eventType === BinanceEventType.FORCE_ORDER) {
           const o = parsed.data.o;
           observer.next({
-            type: 'liquidation',
+            type: BinanceEventType.LIQUIDATION,
             symbol: o.s,
             side: o.S,
             amount: parseFloat(o.p) * parseFloat(o.q)
@@ -83,18 +99,14 @@ export class BinanceSocketService {
       };
 
       ws.onerror = (err) => observer.error(err);
-      
+
       ws.onclose = (e) => {
         if (e.code !== 1000) {
-          console.warn(`[WS ${socketKey}] Closed unexpectedly. Reconnecting...`);
-          // В реальному додатку тут краще використовувати логіку реконекту через RxJS (retryWhen)
+          console.warn(`[WS ${socketKey}] Closed with code ${e.code}. Reconnecting logic could be here.`);
         }
       };
 
-      // Cleanup при відписці
-      return () => {
-        this.closeSocketByKey(socketKey);
-      };
+      return () => this.closeSocketByKey(socketKey);
     });
   }
 
@@ -107,20 +119,25 @@ export class BinanceSocketService {
     }
   }
 
-  getKlinesHistory(symbol: string, interval: string, market: 'spot' | 'futures'): Observable<any[]> {
+  getKlinesHistory(symbol: string, interval: string, market: MarketType): Observable<any[]> {
     const baseUrl = this.getBaseUrl(market);
     return this.http.get<any[]>(`${baseUrl}/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=1000`);
   }
 
-  getExchangeInfo(marketType: 'spot' | 'futures'): Observable<any> {
-    const baseUrl = this.getBaseUrl(marketType);
+  getExchangeInfo(market: MarketType): Observable<any> {
+    const baseUrl = this.getBaseUrl(market);
     return this.http.get(`${baseUrl}/exchangeInfo`);
   }
 
-  private getBaseUrl(market: 'spot' | 'futures'): string {
+  private getBaseUrl(market: MarketType): string {
+    const isFutures = market === MarketType.FUTURES;
+
     if (isDevMode()) {
-      return market === 'futures' ? '/api/binance/futures/fapi/v1' : '/api/binance/spot/api/v3';
+      // Проксі-шляхи для розробки
+      return isFutures ? '/api/binance/futures/fapi/v1' : '/api/binance/spot/api/v3';
     }
-    return market === 'futures' ? 'https://fapi.binance.com/fapi/v1' : 'https://api.binance.com/api/v3';
+
+    // Прямі шляхи для продакшну
+    return isFutures ? 'https://fapi.binance.com/fapi/v1' : 'https://api.binance.com/api/v3';
   }
 }

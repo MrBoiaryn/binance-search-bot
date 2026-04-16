@@ -6,7 +6,7 @@ import { from, of, delay, mergeMap, map, toArray, catchError, Subject, auditTime
 // Сервіси та константи
 import { BinanceSocketService } from './services/binance';
 import { TradeStorageService } from './services/trade-storage.service';
-import { MarketType, PositionStatus, SignalSide } from './core/constants/trade-enums';
+import { MarketType, PositionStatus, SignalSide, BinanceEventType, BinanceFilterType } from './core/constants/trade-enums';
 
 // Core
 import * as Indicators from './core/math/indicators';
@@ -213,7 +213,7 @@ export class App implements OnInit, OnDestroy {
   }
 
   private analyzeData(data: any, tf: string) {
-    if (data.type === 'liquidation') return;
+    if (data.type === BinanceEventType.LIQUIDATION) return;
 
     const kline = data;
     const symbol = kline.symbol.toUpperCase();
@@ -306,7 +306,7 @@ export class App implements OnInit, OnDestroy {
     symbols.forEach(s => {
       const sym = s.symbol.toUpperCase();
       this.symbolQuotes.set(sym, s.quoteAsset.toUpperCase());
-      const f = s.filters.find((f: any) => f.filterType === 'PRICE_FILTER');
+      const f = s.filters.find((f: any) => f.filterType === BinanceFilterType.PRICE_FILTER);
       if (f) this.symbolTickSizes.set(sym, parseFloat(f.tickSize));
     });
   }

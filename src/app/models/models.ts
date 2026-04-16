@@ -1,7 +1,7 @@
-import { MarketType, PositionStatus, SignalSide } from '../core/constants/trade-enums';
+import { MarketType, PositionStatus, SignalSide, BinanceEventType } from '../core/constants/trade-enums';
 
 export interface KlineData {
-  type: 'kline' | 'liquidation';
+  type: BinanceEventType;
   symbol: string;
   isClosed?: boolean;
   open?: number;

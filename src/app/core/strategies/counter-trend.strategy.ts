@@ -37,7 +37,7 @@ export function detectTradeSignal(
           const signal = createSignal(kline, SignalSide.LONG, `${name}${suffix}`, volMult, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
 
           if (isValidSignal(signal, settings)) {
-            clusterTracker.set(`${name}_LONG_${tf}`, (clusterTracker.get(`${name}_LONG_${tf}`) || 0) + 1);
+            clusterTracker.set(`${name}_${SignalSide.LONG}_${tf}`, (clusterTracker.get(`${name}_${SignalSide.LONG}_${tf}`) || 0) + 1);
             return signal;
           }
         }
@@ -57,7 +57,7 @@ export function detectTradeSignal(
           const signal = createSignal(kline, SignalSide.SHORT, `${name}${suffix}`, volMult, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
 
           if (isValidSignal(signal, settings)) {
-            clusterTracker.set(`${name}_SHORT_${tf}`, (clusterTracker.get(`${name}_SHORT_${tf}`) || 0) + 1);
+            clusterTracker.set(`${name}_${SignalSide.SHORT}_${tf}`, (clusterTracker.get(`${name}_${SignalSide.SHORT}_${tf}`) || 0) + 1);
             return signal;
           }
         }

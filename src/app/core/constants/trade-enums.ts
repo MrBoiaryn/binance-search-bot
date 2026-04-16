@@ -40,3 +40,15 @@ export enum TimeframeUnit {
   HOURS = 'h',
   DAYS = 'd'
 }
+
+export enum BinanceEventType {
+  KLINE = 'kline',
+  LIQUIDATION = 'liquidation',
+  FORCE_ORDER = 'forceOrder' // Added for raw Binance event
+}
+
+export enum BinanceFilterType {
+  PRICE_FILTER = 'PRICE_FILTER',
+  LOT_SIZE = 'LOT_SIZE',
+  MIN_NOTIONAL = 'MIN_NOTIONAL'
+}

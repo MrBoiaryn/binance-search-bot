@@ -6,6 +6,7 @@ import { LevelType, PatternType, SignalSide } from '../constants/trade-enums';
 export function detectTradeSignal(
   kline: any,
   volMult: number,
+  prevVolMult: number,
   ctx: PatternContext,
   history: any[],
   tf: string,
@@ -14,8 +15,6 @@ export function detectTradeSignal(
   symbolTickSizes: Map<string, number>,
   symbolQuotes: Map<string, string>
 ): TradeSignal | null {
-  if (volMult < settings.minVolMult || volMult > settings.maxVolMult) return null;
-
   if (settings.useDivergence && !ctx.hasDivergence) return null;
 
   const isTooDense = (name: string, type: SignalSide) => {
@@ -23,18 +22,20 @@ export function detectTradeSignal(
     return (clusterTracker.get(key) || 0) >= settings.maxClusterSize;
   };
 
-  const isAnomalousVol = volMult >= (settings.minVolMult * 2.5);
-
   // LONG
   if (settings.showLong) {
     for (const detect of LONG_DETECTORS) {
       const name = detect(ctx);
       if (name) {
+        const effectiveVol = name === PatternType.INSIDE ? prevVolMult : volMult;
+        if (effectiveVol < settings.minVolMult || effectiveVol > settings.maxVolMult) continue;
+
         const isAtBottom = (name === PatternType.INSIDE) ? ctx.isMotherBarBottom : ctx.isLocalBottom;
 
         if (isAtBottom && !isTooDense(name, SignalSide.LONG)) {
+          const isAnomalousVol = effectiveVol >= (settings.minVolMult * 2.5);
           const suffix = isAnomalousVol ? ' 🔥' : (ctx.hasDivergence ? ' 💎' : '');
-          const signal = createSignal(kline, SignalSide.LONG, `${name}${suffix}`, volMult, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
+          const signal = createSignal(kline, SignalSide.LONG, `${name}${suffix}`, effectiveVol, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
 
           if (isValidSignal(signal, settings)) {
             clusterTracker.set(`${name}_${SignalSide.LONG}_${tf}`, (clusterTracker.get(`${name}_${SignalSide.LONG}_${tf}`) || 0) + 1);
@@ -50,11 +51,15 @@ export function detectTradeSignal(
     for (const detect of SHORT_DETECTORS) {
       const name = detect(ctx);
       if (name) {
+        const effectiveVol = name === PatternType.INSIDE ? prevVolMult : volMult;
+        if (effectiveVol < settings.minVolMult || effectiveVol > settings.maxVolMult) continue;
+
         const isAtPeak = (name === PatternType.INSIDE) ? ctx.isMotherBarPeak : ctx.isLocalPeak;
 
         if (isAtPeak && !isTooDense(name, SignalSide.SHORT)) {
+          const isAnomalousVol = effectiveVol >= (settings.minVolMult * 2.5);
           const suffix = isAnomalousVol ? ' 🔥' : (ctx.hasDivergence ? ' 💎' : '');
-          const signal = createSignal(kline, SignalSide.SHORT, `${name}${suffix}`, volMult, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
+          const signal = createSignal(kline, SignalSide.SHORT, `${name}${suffix}`, effectiveVol, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
 
           if (isValidSignal(signal, settings)) {
             clusterTracker.set(`${name}_${SignalSide.SHORT}_${tf}`, (clusterTracker.get(`${name}_${SignalSide.SHORT}_${tf}`) || 0) + 1);

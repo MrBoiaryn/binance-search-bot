@@ -256,9 +256,11 @@ export class App implements OnInit, OnDestroy {
 
     const avgVol = this.volumeAverages.get(key) || kline.volume!;
     const volMult = Indicators.calculateVolMult(kline, tf, avgVol);
+    const lastCandle = history[history.length - 1];
+    const prevVolMult = Indicators.calculateVolMult(lastCandle, tf, avgVol);
 
     const ctx = ScannerContext.createPatternContext(kline, history, this.settings);
-    const signal = Strategy.detectTradeSignal(kline, volMult, ctx, history, tf, this.settings, this.clusterTracker, this.symbolTickSizes, this.symbolQuotes);
+    const signal = Strategy.detectTradeSignal(kline, volMult, prevVolMult, ctx, history, tf, this.settings, this.clusterTracker, this.symbolTickSizes, this.symbolQuotes);
 
     if (signal) {
       const isNew = !this.activeSignals.has(key);

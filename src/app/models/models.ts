@@ -63,6 +63,7 @@ export interface HistoricalLog {
   beTriggerPrice?: number;
   useBE?: boolean;
   beLevelPct?: number;
+  marketType?: MarketType;
 }
 
 export interface ScannerSettings {

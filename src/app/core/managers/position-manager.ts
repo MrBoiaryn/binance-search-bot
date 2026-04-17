@@ -1,14 +1,15 @@
 import { HistoricalLog } from '../../models/models';
-import { PositionStatus, SignalSide } from '../constants/trade-enums';
-
-const FEE_RATE = 0.001;
+import { MarketType, PositionStatus, SignalSide } from '../constants/trade-enums';
+import { getMarketFee } from '../constants/trading-constants';
+import { calculateTrueBreakeven } from '../math/trading-math';
 
 export function processTick(
   kline: any,
   history: HistoricalLog[],
   symbolHistory: any[],
   trailingBars: number,
-  tickSize: number
+  tickSize: number,
+  marketType: MarketType = MarketType.FUTURES
 ): boolean {
   let updated = false;
 
@@ -25,6 +26,7 @@ export function processTick(
     const high = kline.high;
     const low = kline.low;
     const currentPrice = kline.close;
+    const feeRate = getMarketFee(log.marketType || marketType);
 
     // --- 1. ЛОГІКА ТРЕЙЛІНГ-СТОПУ ---
     if (log.status === PositionStatus.OPENED && trailingBars > 0 && symbolHistory.length >= trailingBars) {
@@ -59,10 +61,19 @@ export function processTick(
 
       if (isBeTriggered) {
         if (!log.initialSl) log.initialSl = log.sl;
-        // Перевіряємо чи новий стоп (Entry Price) кращий за поточний (наприклад, Trailing Stop міг бути вже вище)
-        const isBetter = log.type === SignalSide.LONG ? log.price > log.sl : log.price < log.sl;
+        
+        // Calculate True Breakeven Price
+        const trueBePrice = calculateTrueBreakeven(
+          log.price,
+          log.type as SignalSide,
+          log.marketType || marketType,
+          tickSize
+        );
+
+        // Перевіряємо чи новий стоп кращий за поточний (наприклад, Trailing Stop міг бути вже вище)
+        const isBetter = log.type === SignalSide.LONG ? trueBePrice > log.sl : trueBePrice < log.sl;
         if (isBetter) {
-          log.sl = log.price;
+          log.sl = trueBePrice;
           updated = true;
         }
         log.beTriggered = true;
@@ -73,8 +84,6 @@ export function processTick(
     // --- 3. ПЕРЕВІРКА СТАТУСІВ (Песимістична модель) ---
     if (log.type === SignalSide.LONG) {
       if (!log.isOpened) {
-        // Якщо ціна спочатку впала нижче SL, а потім виросла до входу в межах однієї свічки
-        // (Песимістичний сценарій: вважаємо що SL був першим)
         if (low <= log.sl) {
           log.status = PositionStatus.CANCELLED;
           updated = true;
@@ -82,7 +91,6 @@ export function processTick(
           log.isOpened = true;
           log.status = PositionStatus.OPENED;
           
-          // Ініціалізація BE Trigger Price при відкритті
           if (log.useBE && log.beLevelPct) {
             const distance = Math.abs(log.tp - log.price);
             log.beTriggerPrice = log.price + (distance * (log.beLevelPct / 100));
@@ -91,14 +99,13 @@ export function processTick(
           updated = true;
         }
       } else {
-        // Пріоритет SL над TP в межах однієї свічки для безпечної статистики
         if (low <= log.sl) {
           log.status = PositionStatus.SL;
-          log.pnl = ((log.sl - log.price) / log.price * 100) - (FEE_RATE * 100);
+          log.pnl = ((log.sl - log.price) / log.price * 100) - (feeRate * 2 * 100);
           updated = true;
         } else if (high >= log.tp) {
           log.status = PositionStatus.TP;
-          log.pnl = ((log.tp - log.price) / log.price * 100) - (FEE_RATE * 100);
+          log.pnl = ((log.tp - log.price) / log.price * 100) - (feeRate * 2 * 100);
           updated = true;
         }
       }
@@ -111,7 +118,6 @@ export function processTick(
           log.isOpened = true;
           log.status = PositionStatus.OPENED;
 
-          // Ініціалізація BE Trigger Price при відкритті
           if (log.useBE && log.beLevelPct) {
             const distance = Math.abs(log.tp - log.price);
             log.beTriggerPrice = log.price - (distance * (log.beLevelPct / 100));
@@ -120,14 +126,13 @@ export function processTick(
           updated = true;
         }
       } else {
-        // Пріоритет SL над TP
         if (high >= log.sl) {
           log.status = PositionStatus.SL;
-          log.pnl = ((log.price - log.sl) / log.price * 100) - (FEE_RATE * 100);
+          log.pnl = ((log.price - log.sl) / log.price * 100) - (feeRate * 2 * 100);
           updated = true;
         } else if (low <= log.tp) {
           log.status = PositionStatus.TP;
-          log.pnl = ((log.price - log.tp) / log.price * 100) - (FEE_RATE * 100);
+          log.pnl = ((log.price - log.tp) / log.price * 100) - (feeRate * 2 * 100);
           updated = true;
         }
       }

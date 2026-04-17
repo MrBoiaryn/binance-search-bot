@@ -83,9 +83,14 @@
                 @if (log.initialSl && log.initialSl !== log.sl) {
                   <span class="old-price">{{log.initialSl | number:'1.2-8'}}</span>
                 }
-                <span class="current-price" [class.trailed]="log.initialSl && log.initialSl !== log.sl">
-                  {{log.sl | number:'1.2-8'}}
-                </span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <span class="current-price" [class.trailed]="log.initialSl && log.initialSl !== log.sl">
+                    {{log.sl | number:'1.2-8'}}
+                  </span>
+                  @if (log.beTriggered) {
+                    <span class="be-badge" style="background: #0ecb81; color: #000; font-size: 9px; padding: 1px 3px; border-radius: 2px; font-weight: bold;">BE</span>
+                  }
+                </div>
                 <span class="percent-dist">
                   {{ getPercent(log.price, log.sl) | number:'1.2-2' }}%
                 </span>

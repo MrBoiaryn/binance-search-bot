@@ -65,6 +65,8 @@ export class App implements OnInit, OnDestroy {
     useDivergence: false,
     trailingBars: 5,
     minProfitThreshold: 0.7,
+    useBE: true,
+    beLevelPct: 50
   };
 
   constructor(
@@ -291,7 +293,9 @@ export class App implements OnInit, OnDestroy {
       status: PositionStatus.PENDING,
       quoteAsset: sig.quoteAsset,
       isOpened: false,
-      hasDivergence: sig.hasDivergence
+      hasDivergence: sig.hasDivergence,
+      useBE: this.settings.useBE,
+      beLevelPct: this.settings.beLevelPct
     });
     if (this.lastSignalsHistory.length > 3000) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);

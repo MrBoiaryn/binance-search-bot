@@ -58,6 +58,11 @@ export interface HistoricalLog {
   timeframe: string;
   lvlStrength: number;
   hasDivergence?: boolean;
+
+  beTriggered?: boolean;
+  beTriggerPrice?: number;
+  useBE?: boolean;
+  beLevelPct?: number;
 }
 
 export interface ScannerSettings {
@@ -83,6 +88,9 @@ export interface ScannerSettings {
   showLong: boolean;
   showShort: boolean;
   useDivergence: boolean;
+
+  useBE: boolean;
+  beLevelPct: number;
 }
 
 export interface PatternContext {

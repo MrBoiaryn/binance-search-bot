@@ -24,6 +24,7 @@ export function processTick(
   for (let log of activeLogs) {
     const high = kline.high;
     const low = kline.low;
+    const currentPrice = kline.close;
 
     // --- 1. ЛОГІКА ТРЕЙЛІНГ-СТОПУ ---
     if (log.status === PositionStatus.OPENED && trailingBars > 0 && symbolHistory.length >= trailingBars) {
@@ -50,7 +51,26 @@ export function processTick(
       }
     }
 
-    // --- 2. ПЕРЕВІРКА СТАТУСІВ (Песимістична модель) ---
+    // --- 2. ЛОГІКА DYNAMIC BREAKEVEN ---
+    if (log.useBE && log.status === PositionStatus.OPENED && !log.beTriggered && log.beTriggerPrice) {
+      const isBeTriggered = log.type === SignalSide.LONG
+        ? high >= log.beTriggerPrice
+        : low <= log.beTriggerPrice;
+
+      if (isBeTriggered) {
+        if (!log.initialSl) log.initialSl = log.sl;
+        // Перевіряємо чи новий стоп (Entry Price) кращий за поточний (наприклад, Trailing Stop міг бути вже вище)
+        const isBetter = log.type === SignalSide.LONG ? log.price > log.sl : log.price < log.sl;
+        if (isBetter) {
+          log.sl = log.price;
+          updated = true;
+        }
+        log.beTriggered = true;
+        updated = true;
+      }
+    }
+
+    // --- 3. ПЕРЕВІРКА СТАТУСІВ (Песимістична модель) ---
     if (log.type === SignalSide.LONG) {
       if (!log.isOpened) {
         // Якщо ціна спочатку впала нижче SL, а потім виросла до входу в межах однієї свічки
@@ -61,6 +81,13 @@ export function processTick(
         } else if (high >= log.price) {
           log.isOpened = true;
           log.status = PositionStatus.OPENED;
+          
+          // Ініціалізація BE Trigger Price при відкритті
+          if (log.useBE && log.beLevelPct) {
+            const distance = Math.abs(log.tp - log.price);
+            log.beTriggerPrice = log.price + (distance * (log.beLevelPct / 100));
+          }
+          
           updated = true;
         }
       } else {
@@ -83,6 +110,13 @@ export function processTick(
         } else if (low <= log.price) {
           log.isOpened = true;
           log.status = PositionStatus.OPENED;
+
+          // Ініціалізація BE Trigger Price при відкритті
+          if (log.useBE && log.beLevelPct) {
+            const distance = Math.abs(log.tp - log.price);
+            log.beTriggerPrice = log.price - (distance * (log.beLevelPct / 100));
+          }
+
           updated = true;
         }
       } else {

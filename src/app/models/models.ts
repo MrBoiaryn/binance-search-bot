@@ -33,6 +33,7 @@ export interface TradeSignal {
   timeframe: string;
   lvlStrength: number;
   hasDivergence: boolean;
+  volumeUsd?: number;
 }
 
 export interface HistoricalLog {
@@ -46,7 +47,6 @@ export interface HistoricalLog {
   sl: number;
   tp: number;
   rr: number;
-  liq: number;
 
   status?: PositionStatus;
   isOpened?: boolean;
@@ -64,6 +64,7 @@ export interface HistoricalLog {
   useBE?: boolean;
   beLevelPct?: number;
   marketType?: MarketType;
+  volumeUsd?: number;
 }
 
 export interface ScannerSettings {

@@ -45,15 +45,20 @@
         <th>Час</th>
         <th>ТФ</th>
         <th>Пара</th>
+        <th>Див.</th>
         <th>Патерн</th>
         <th>Тип</th>
-        <th>Вхід (Entry)</th>
-        <th>Stop Loss (Trail)</th>
-        <th>Take Profit</th>
+        <th>Вхід</th>
+        <th>Stop Price</th>
+        <th>Stop %</th>
+        <th>Take Price</th>
+        <th>Take %</th>
         <th>R/R</th>
-        <th>Метрики (V/S/L)</th>
+        <th>Vol X</th>
+        <th>Swing</th>
+        <th>level</th>
+        <th>Volume ($)</th>
         <th class="text-center">Статус</th>
-        <th class="text-right">Лікв. ($)</th>
       </tr>
       </thead>
       <tbody>
@@ -65,10 +70,15 @@
             <td>
               <div style="display: flex; align-items: center; gap: 4px;">
                 <a [href]="getBinanceLink(log)" target="_blank" class="pair-link">{{log.symbol}} ↗</a>
-                @if (log.hasDivergence) {
-                  <span title="AO Divergence Detected" style="font-size: 12px; cursor: help;">💎</span>
-                }
               </div>
+            </td>
+
+            <td class="text-center">
+              @if (log.hasDivergence) {
+                <span title="Divergence Detected" style="color: #f3ba2f;">Yes</span>
+              } @else {
+                <span style="color: #474d57;">No</span>
+              }
             </td>
 
             <td class="pattern-cell">{{log.pattern}}</td>
@@ -79,51 +89,44 @@
             <td class="entry-cell">{{log.price | number:'1.2-8'}}</td>
 
             <td class="sl-cell">
-              <div class="price-stack">
-                @if (log.initialSl && log.initialSl !== log.sl) {
-                  <span class="old-price">{{log.initialSl | number:'1.2-8'}}</span>
-                }
-                <div style="display: flex; align-items: center; gap: 4px;">
+              <div style="display: flex; align-items: center; gap: 4px;">
                   <span class="current-price" [class.trailed]="log.initialSl && log.initialSl !== log.sl">
                     {{log.sl | number:'1.2-8'}}
                   </span>
                   @if (log.beTriggered) {
                     <span class="be-badge" style="background: #0ecb81; color: #000; font-size: 9px; padding: 1px 3px; border-radius: 2px; font-weight: bold;">BE</span>
                   }
-                </div>
-                <span class="percent-dist">
-                  {{ getPercent(log.price, log.sl) | number:'1.2-2' }}%
-                </span>
               </div>
+            </td>
+            <td class="sl-pct-cell" style="color: #f6465d;">
+                {{ getPercent(log.price, log.sl) | number:'1.2-2' }}%
             </td>
 
             <td class="tp-cell">
-              <div class="price-stack">
                 <span class="current-price">{{log.tp | number:'1.2-8'}}</span>
-                <span class="percent-dist tp-dist">
-                  {{ getPercent(log.price, log.tp) | number:'1.2-2' }}%
-                </span>
-              </div>
+            </td>
+            <td class="tp-pct-cell" style="color: #0ecb81;">
+                {{ getPercent(log.price, log.tp) | number:'1.2-2' }}%
             </td>
 
             <td class="rr-cell" [style.color]="log.rr >= 1.5 ? '#0ecb81' : '#f3ba2f'">
               {{log.rr | number:'1.1-2'}}
             </td>
 
-            <td class="metrics-cell">
-              <div class="metrics-wrapper">
-                <span class="vol-val" [style.color]="log.volMult >= 5 ? '#f3ba2f' : '#848e9c'">
-                  x{{log.volMult | number:'1.1-1'}}
-                </span>
-                <span class="divider">/</span>
-                <span class="swing-val" [style.color]="log.swingStrength >= 0.3 ? '#0ecb81' : '#f6465d'">
-                  {{log.swingStrength | number:'1.2-2'}}%
-                </span>
-                <span class="divider">/</span>
-                <span class="lvl-val" [style.color]="log.lvlStrength >= 2.0 ? '#f3ba2f' : '#848e9c'">
+            <td class="vol-mult-cell" [style.color]="log.volMult >= 5 ? '#f3ba2f' : '#848e9c'">
+              x{{log.volMult | number:'1.1-1'}}
+            </td>
+
+            <td class="swing-cell" [style.color]="log.swingStrength >= 0.3 ? '#0ecb81' : '#f6465d'">
+              {{log.swingStrength | number:'1.2-2'}}%
+            </td>
+
+            <td class="lvl-val" [style.color]="log.lvlStrength >= 2.0 ? '#f3ba2f' : '#848e9c'">
                   L:{{log.lvlStrength | number:'1.1-1'}}
-                </span>
-              </div>
+                </td>
+
+            <td class="volume-usd-cell" style="color: #848e9c;">
+              ${{ (log.volumeUsd || 0) | number:'1.0-0' }}
             </td>
 
             <td class="status-cell text-center">
@@ -143,12 +146,10 @@
                 <span class="badge sl">Стоп: {{log.pnl | number:'1.2-2'}}%</span>
               }
             </td>
-
-            <td class="liq-cell text-right">${{log.liq | number:'1.0-0'}}</td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="12" style="text-align: center; padding: 40px; color: #848e9c;">
+            <td colspan="17" style="text-align: center; padding: 40px; color: #848e9c;">
               📭 Журнал порожній. Очікуємо на нові сигнали...
             </td>
           </tr>

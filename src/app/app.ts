@@ -266,6 +266,8 @@ export class App implements OnInit, OnDestroy {
 
     if (signal) {
       const isNew = !this.activeSignals.has(key);
+      // Розрахунок Volume ($) для поточного сигналу
+      signal.volumeUsd = kline.volume * kline.close;
       this.activeSignals.set(key, signal);
       if (isNew && this.settings.soundEnabled) this.playAlertSound();
     } else {
@@ -289,13 +291,13 @@ export class App implements OnInit, OnDestroy {
       volMult: sig.volumeMultiplier,
       swingStrength: sig.swingStrength,
       lvlStrength: sig.lvlStrength,
-      liq: sig.liqAmount,
       status: PositionStatus.PENDING,
       quoteAsset: sig.quoteAsset,
       isOpened: false,
       hasDivergence: sig.hasDivergence,
       useBE: this.settings.useBE,
-      beLevelPct: this.settings.beLevelPct
+      beLevelPct: this.settings.beLevelPct,
+      volumeUsd: sig.volumeUsd
     });
     if (this.lastSignalsHistory.length > 3000) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);

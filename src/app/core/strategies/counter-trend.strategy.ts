@@ -133,12 +133,10 @@ export function createSignal(
   let naturalReward = Math.abs(tpPrice - entryPrice);
 
   // Конфлікт рівня і RR
+  // If the natural level doesn't provide enough reward or is on the wrong side,
+  // we always fall back to the minimum mathematical TP, ensuring minRR is met.
   if (naturalReward < requiredReward || (type === SignalSide.LONG ? tpPrice <= entryPrice : tpPrice >= entryPrice)) {
-    if (levelData.strength < minLvlStrength) {
-      tpPrice = minMathTp; // Застосовуємо залізну математику
-    } else {
-      return null;
-    }
+    tpPrice = minMathTp;
   }
 
   // Зрізання максимальної жадібності

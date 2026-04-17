@@ -94,9 +94,12 @@ export function createSignal(
   const symbol = kline.symbol.toUpperCase();
   const tickSize = symbolTickSizes.get(symbol) || 0.0001;
 
+  const isInside = pattern.includes(PatternType.INSIDE);
+  const entryRefCandle = isInside ? history[history.length - 1] : kline;
+
   // 1. Точка входу (з ATR відступом)
   const entryOffset = atr * 0.1;
-  const rawEntryPrice = type === SignalSide.LONG ? kline.high + entryOffset : kline.low - entryOffset;
+  const rawEntryPrice = type === SignalSide.LONG ? entryRefCandle.high + entryOffset : entryRefCandle.low - entryOffset;
   const entryPrice = roundToTick(rawEntryPrice, tickSize);
 
   // 2. Відхилення
@@ -160,6 +163,15 @@ export function createSignal(
 
 export function calculateSL(kline: any, history: any[], type: SignalSide, tick: number, pattern: string, atr: number): number {
   const slOffset = atr * 0.15;
+  const isInside = pattern.includes(PatternType.INSIDE);
+
+  if (isInside) {
+    const motherBar = history[history.length - 1];
+    return type === SignalSide.LONG
+      ? roundToTick(motherBar.low - slOffset, tick)
+      : roundToTick(motherBar.high + slOffset, tick);
+  }
+
   if (pattern.includes(PatternType.PIN_BAR) || pattern.includes(PatternType.HAMMER) || pattern.includes(PatternType.STAR)) {
     return type === SignalSide.LONG
       ? roundToTick(kline.low - slOffset, tick)

@@ -194,23 +194,23 @@ export const bearishMomentum: DetectorFn = ({ kline, avgBody }) => {
  */
 
 export const LONG_DETECTORS = [
-  hammerDetector,
-  pinBarLONG,
-  dojiDetector,
-  bullishEngulfing,
-  railsLONG,
-  absorptionLONG,
-  bullishMomentum,
+  // hammerDetector,
+  // pinBarLONG,
+  // dojiDetector,
+  // bullishEngulfing,
+  // railsLONG,
+  // absorptionLONG,
+  // bullishMomentum,
   insideBarDetector
 ];
 
 export const SHORT_DETECTORS = [
-  shootingStarDetector,
-  pinBarSHORT,
-  dojiDetector,
-  bearishEngulfing,
-  railsSHORT,
-  absorptionSHORT,
-  bearishMomentum,
+  // shootingStarDetector,
+  // pinBarSHORT,
+  // dojiDetector,
+  // bearishEngulfing,
+  // railsSHORT,
+  // absorptionSHORT,
+  // bearishMomentum,
   insideBarDetector
 ];

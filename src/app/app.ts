@@ -338,6 +338,8 @@ export class App implements OnInit, OnDestroy {
     // Only add non-stale signals to history
     if (sig.isStale) return;
 
+    const slPct = Math.abs(sig.entryPrice - sig.stopLoss) / sig.entryPrice * 100;
+
     this.lastSignalsHistory.unshift({
       id: Date.now() + Math.random(),
       time: new Date(kline.openTime || Date.now()).toLocaleTimeString(),
@@ -359,7 +361,8 @@ export class App implements OnInit, OnDestroy {
       hasDivergence: sig.hasDivergence,
       useTPGrid: this.settings.useTPGrid,
       tpGrid: this.settings.useTPGrid ? JSON.parse(JSON.stringify(this.settings.tpGrid)) : undefined,
-      volumeUsd: sig.volumeUsd
+      volumeUsd: sig.volumeUsd,
+      initialSlPercent: slPct
     });
     if (this.lastSignalsHistory.length > 3000) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);

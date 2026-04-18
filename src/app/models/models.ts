@@ -64,6 +64,7 @@ export interface HistoricalLog {
   isOpened?: boolean;
   pnl?: number;
   initialSl?: number;
+  initialSlPercent?: number;
 
   volMult: number;
   swingStrength: number;

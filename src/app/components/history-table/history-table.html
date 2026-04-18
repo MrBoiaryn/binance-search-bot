@@ -103,7 +103,7 @@
               </div>
             </td>
             <td class="sl-pct-cell" style="color: #f6465d;">
-              {{getPercent(log.price, log.sl) | number:'1.2-2'}}%
+              {{ (log.initialSlPercent || getPercent(log.price, log.sl)) | number:'1.2-2' }}%
             </td>
 
             <td class="tp-cell text-center">

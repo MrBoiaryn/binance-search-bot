@@ -68,6 +68,9 @@
         }
         &.long, &.short { opacity: 1; filter: none; }
         &.off { opacity: 0.2; filter: grayscale(1); }
+        &[title*="Ghost"].active {
+          text-shadow: 0 0 10px rgba(0, 255, 255, 0.6); // Блакитне сяйво
+        }
       }
     }
 

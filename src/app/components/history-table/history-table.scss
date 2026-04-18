@@ -69,6 +69,31 @@
     font-family: 'Roboto Mono', monospace;
     font-size: 12px;
   }
+
+  .grid-dots {
+    display: flex;
+    gap: 3px;
+    justify-content: center;
+
+    .dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #474d57;
+
+      &.hit {
+        background: #0ecb81;
+        box-shadow: 0 0 4px #0ecb81;
+      }
+    }
+  }
+
+  .status-cell {
+    .badge {
+      min-width: 80px;
+      white-space: nowrap;
+    }
+  }
 }
 
 .history-header {

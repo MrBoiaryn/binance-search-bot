@@ -8,10 +8,10 @@
     <div class="balance-stats">
       <span class="stat-label">Депозит:</span>
       <span class="stat-value" [style.color]="totalPnL >= 0 ? '#0ecb81' : '#f6465d'">
-        {{ 100 + totalPnL | number:'1.2-2' }}%
+        {{100 + totalPnL | number:'1.2-2'}}%
       </span>
       <span class="stat-diff" [style.color]="totalPnL >= 0 ? '#0ecb81' : '#f6465d'">
-        ({{ totalPnL > 0 ? '+' : '' }}{{ totalPnL | number:'1.2-2' }}%)
+        ({{totalPnL > 0 ? '+' : ''}}{{totalPnL | number:'1.2-2'}}%)
       </span>
     </div>
 
@@ -20,14 +20,16 @@
               [style.background]="activeFilter === PositionStatus.ALL ? '#f3ba2f' : '#2b3139'"
               [style.color]="activeFilter === PositionStatus.ALL ? '#000' : '#848e9c'"
               style="border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s;"
-              (click)="filterChanged.emit(PositionStatus.ALL)">Усі ТФ</button>
+              (click)="filterChanged.emit(PositionStatus.ALL)">Усі ТФ
+      </button>
 
       @for (tf of availableTfs; track tf) {
         <button class="tf-filter-btn"
                 [style.background]="activeFilter === tf ? '#f3ba2f' : '#2b3139'"
                 [style.color]="activeFilter === tf ? '#000' : '#848e9c'"
                 style="border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s;"
-                (click)="filterChanged.emit(tf)">{{tf}}</button>
+                (click)="filterChanged.emit(tf)">{{tf}}
+        </button>
       }
     </div>
 
@@ -83,7 +85,8 @@
 
             <td class="pattern-cell">{{log.pattern}}</td>
             <td>
-              <span class="side-cell" [style.color]="log.type === SignalSide.LONG ? '#0ecb81' : '#f6465d'">{{log.type}}</span>
+              <span class="side-cell"
+                    [style.color]="log.type === SignalSide.LONG ? '#0ecb81' : '#f6465d'">{{log.type}}</span>
             </td>
 
             <td class="entry-cell">{{log.price | number:'1.2-8'}}</td>
@@ -93,35 +96,35 @@
                   <span class="current-price" [class.trailed]="log.initialSl && log.initialSl !== log.sl">
                     {{log.sl | number:'1.2-8'}}
                   </span>
-                  @if (log.beTriggered) {
-                    <span class="be-badge" style="background: #0ecb81; color: #000; font-size: 9px; padding: 1px 3px; border-radius: 2px; font-weight: bold;">BE</span>
-                  }
+                @if (log.beTriggered) {
+                  <span class="be-badge"
+                        style="background: #0ecb81; color: #000; font-size: 9px; padding: 1px 3px; border-radius: 2px; font-weight: bold;">BE</span>
+                }
               </div>
             </td>
             <td class="sl-pct-cell" style="color: #f6465d;">
-                {{ getPercent(log.price, log.sl) | number:'1.2-2' }}%
+              {{getPercent(log.price, log.sl) | number:'1.2-2'}}%
             </td>
 
-            <td class="tp-cell">
-                @if (log.useFibGrid && log.exitGrid && log.exitGrid.length > 0) {
-                  <div class="tp-grid-display" style="display: flex; flex-direction: column; gap: 2px;">
-                    <div style="font-size: 9px; color: #848e9c; margin-bottom: 2px;">
-                      {{ getHitCount(log.exitGrid) }}/{{ log.exitGrid.length }} Hits
-                    </div>
-                    @for (level of log.exitGrid; track level.movePercent) {
-                      <div class="tp-level-row" [style.color]="level.isHit ? '#0ecb81' : '#848e9c'" style="font-size: 10px; display: flex; align-items: center; gap: 4px; white-space: nowrap;">
-                        @if (level.isHit) { <span>✓</span> }
-                        <span>{{ (level.price || 0) | number:'1.2-8' }}</span>
-                        <span style="font-size: 8px;">({{ level.volumePercent }}%)</span>
-                      </div>
+            <td class="tp-cell text-center">
+              @if (log.tpGrid && log.tpGrid.length > 0) {
+                <div class="tp-grid-visualizer"
+                     style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                  <div class="hit-ratio" style="font-size: 10px; color: #848e9c; font-weight: bold;">
+                    {{getHitCount(log.tpGrid)}}/{{log.tpGrid.length}}
+                  </div>
+                  <div class="grid-dots">
+                    @for (level of log.tpGrid; track $index) {
+                      <div class="dot" [class.hit]="level.isHit"></div>
                     }
                   </div>
-                } @else {
-                  <span class="current-price">{{log.tp | number:'1.2-8'}}</span>
-                }
+                </div>
+              } @else {
+                <span class="current-price">{{log.tp | number:'1.2-8'}}</span>
+              }
             </td>
             <td class="tp-pct-cell" style="color: #0ecb81;">
-                {{ getPercent(log.price, log.tp) | number:'1.2-2' }}%
+              {{getPercent(log.price, log.tp) | number:'1.2-2'}}%
             </td>
 
             <td class="rr-cell" [style.color]="log.rr >= 1.5 ? '#0ecb81' : '#f3ba2f'">
@@ -137,28 +140,44 @@
             </td>
 
             <td class="lvl-val" [style.color]="log.lvlStrength >= 2.0 ? '#f3ba2f' : '#848e9c'">
-                  L:{{log.lvlStrength | number:'1.1-1'}}
-                </td>
+              L:{{log.lvlStrength | number:'1.1-1'}}
+            </td>
 
             <td class="volume-usd-cell" style="color: #848e9c;">
-              ${{ (log.volumeUsd || 0) | number:'1.0-0' }}
+              ${{(log.volumeUsd || 0) | number:'1.0-0'}}
             </td>
 
             <td class="status-cell text-center">
               @if (log.status === PositionStatus.PENDING || !log.status) {
                 <span class="badge pending">Очікує входу</span>
               }
+
               @if (log.status === PositionStatus.OPENED) {
-                <span class="badge opened">У позиції</span>
+                <span class="badge opened">
+      У позиції
+                  @if (log.beTriggered) { <span class="be-label">(BE Active)</span> }
+    </span>
               }
+
               @if (log.status === PositionStatus.CANCELLED) {
                 <span class="badge cancelled">Не відкрилась</span>
               }
+
               @if (log.status === PositionStatus.TP) {
-                <span class="badge tp">Тейк: +{{log.pnl | number:'1.2-2'}}%</span>
+                <span class="badge tp">
+      TP: {{ (log.pnl ?? 0) > 0 ? '+' : '' }}{{ log.pnl | number:'1.2-2' }}%
+                  @if (log.beTriggered) { <span class="be-label">(BE)</span> }
+    </span>
               }
+
               @if (log.status === PositionStatus.SL) {
-                <span class="badge sl">Стоп: {{log.pnl | number:'1.2-2'}}%</span>
+                <span class="badge"
+                      [class.tp]="(log.pnl ?? 0) >= 0"
+                      [class.sl]="(log.pnl ?? 0) < 0">
+      SL: {{ (log.pnl ?? 0) > 0 ? '+' : '' }}{{ log.pnl | number:'1.2-2' }}%
+                  @if (log.beTriggered) { <span class="be-label">(BE)</span> }
+                  @if (getHitCount(log.tpGrid) > 0) { <span class="partial-label">Partial</span> }
+    </span>
               }
             </td>
           </tr>

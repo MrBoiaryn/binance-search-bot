@@ -31,7 +31,7 @@ export class HistoryTable {
   getBinanceLink(log: HistoricalLog): string {
     return generateBinanceLink(
       log.symbol,
-      this.marketType,
+      log.marketType || this.marketType,
       log.quoteAsset
     );
   }
@@ -41,8 +41,8 @@ export class HistoryTable {
     return (Math.abs(target - price) / price) * 100;
   }
 
-  getHitCount(exitGrid?: TPGridLevel[]): number {
-    if (!exitGrid) return 0;
-    return exitGrid.filter(l => l.isHit).length;
+  getHitCount(grid?: TPGridLevel[]): number {
+    if (!grid) return 0;
+    return grid.filter(l => l.isHit).length;
   }
 }

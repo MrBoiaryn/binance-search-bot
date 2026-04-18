@@ -1,6 +1,6 @@
 .header-container {
   background: #161a1e;
-  padding: 16px 20px;
+  padding: 10px 20px;
   border-bottom: 1px solid #2b3139;
   color: #eaecef;
 
@@ -14,40 +14,123 @@
       align-items: center;
       gap: 12px;
       .logo-icon { font-size: 24px; }
-      h2 { margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px; }
-      .sub-text { margin: 0; font-size: 10px; color: #848e9c; }
-      .badge { background: #f3ba2f; color: #000; font-size: 9px; padding: 1px 4px; border-radius: 4px; }
+      h2 { margin: 0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+      .sub-text { margin: 0; font-size: 9px; color: #848e9c; }
+      .badge { background: #f3ba2f; color: #000; font-size: 8px; padding: 1px 3px; border-radius: 4px; }
     }
   }
 
   .summary-panel {
     display: flex;
     align-items: center;
-    gap: 12px;
-    font-size: 12px;
+    gap: 15px;
+    font-size: 11px;
     color: #848e9c;
-    background: rgba(255, 255, 255, 0.03);
-    padding: 6px 16px;
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.02);
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
 
-    b { color: #eaecef; }
-    .summary-divider { color: #2b3139; }
+    .summary-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    b {
+      color: #f3ba2f;
+    }
+
+    .mini-chip {
+      background: #2b3139;
+      color: #fff;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+
+    .summary-divider {
+      color: #2b3139;
+      font-weight: bold;
+      opacity: 0.5;
+    }
+
+    .feature-icons {
+      gap: 8px;
+      span {
+        opacity: 0.2;
+        filter: grayscale(1);
+        transition: all 0.2s;
+        &.active {
+          opacity: 1;
+          filter: none;
+          text-shadow: 0 0 8px rgba(243, 186, 47, 0.4);
+        }
+        &.long, &.short { opacity: 1; filter: none; }
+        &.off { opacity: 0.2; filter: grayscale(1); }
+      }
+    }
+
+    .tp-grid-summary {
+      position: relative;
+      cursor: help;
+
+      .grid-tooltip {
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-top: 10px;
+        background: #1e2329;
+        border: 1px solid #474d57;
+        padding: 8px 12px;
+        border-radius: 6px;
+        z-index: 100;
+        visibility: hidden;
+        opacity: 0;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        min-width: 140px;
+        color: #eaecef;
+        transition: all 0.2s;
+
+        div {
+          padding: 2px 0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          &:last-child { border: none; }
+        }
+
+        &::before {
+          content: '';
+          position: absolute;
+          bottom: 100%;
+          left: 50%;
+          transform: translateX(-50%);
+          border: 6px solid transparent;
+          border-bottom-color: #474d57;
+        }
+      }
+
+      &:hover .grid-tooltip {
+        visibility: visible;
+        opacity: 1;
+        top: calc(100% + 5px);
+      }
+    }
   }
 
   .status-panel {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     .status-item {
-      font-size: 13px;
+      font-size: 12px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
     .dot {
-      height: 8px; width: 8px; background: #0ecb81; border-radius: 50%;
-      display: inline-block; box-shadow: 0 0 8px #0ecb81;
+      height: 6px; width: 6px; background: #0ecb81; border-radius: 50%;
+      display: inline-block; box-shadow: 0 0 6px #0ecb81;
     }
   }
 
@@ -55,9 +138,9 @@
     background: #2b3139;
     color: #eaecef;
     border: 1px solid #474d57;
-    padding: 8px 16px;
+    padding: 6px 10px;
     border-radius: 6px;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
@@ -69,10 +152,6 @@
       background: #323a45;
       border-color: #f3ba2f;
       color: #f3ba2f;
-    }
-
-    &:active {
-      transform: scale(0.96);
     }
   }
 }

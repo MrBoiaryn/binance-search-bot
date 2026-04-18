@@ -8,13 +8,60 @@
       </div>
     </div>
 
-    <div class="summary-panel" *ngIf="settings">
-      <span class="summary-item">TF: <b>{{settings.timeframes.join(', ')}}</b></span>
-      <span class="summary-divider">|</span>
-      <span class="summary-item">Vol: <b>{{settings.minVolMult}}x</b></span>
-      <span class="summary-divider">|</span>
-      <span class="summary-item">Market: <b>{{settings.marketType | uppercase}}</b></span>
-    </div>
+    @if (settings) {
+      <div class="summary-panel">
+        <!-- Group 1: Context & Core -->
+        <div class="summary-group">
+          <span>Market: [ <b>{{settings.marketType | uppercase}}</b> ]</span>
+          <span>TFs:
+            @for (tf of settings.timeframes; track tf) {
+              <span class="mini-chip">{{tf}}</span>
+            }
+          </span>
+        </div>
+
+        <span class="summary-divider">|</span>
+
+        <!-- Group 2: The "Golden" Ranges (Technical Filters) -->
+        <div class="summary-group">
+          <span>Vol: <b>{{settings.minVolMult}} - {{settings.maxVolMult}}x</b></span>
+          <span>Sw: <b>{{settings.minSwing}} - {{settings.maxSwing}}%</b></span>
+          <span>RR: <b>{{settings.minRR}} - {{settings.maxRR}}</b></span>
+        </div>
+
+        <span class="summary-divider">|</span>
+
+        <!-- Group 3: Execution Logic -->
+        <div class="summary-group">
+          <span>S: <b>{{settings.swingPeriod}}b</b> | T: <b>{{settings.trailingBars}}b</b></span>
+          <span>Clstr: <b>{{settings.maxClusterSize}}</b> | MinP: <b>{{settings.minProfitThreshold}}%</b></span>
+        </div>
+
+        <span class="summary-divider">|</span>
+
+        <!-- Group 4: Active Features (Icons with Tooltips) -->
+        <div class="summary-group feature-icons">
+          <span [class.active]="settings.useDivergence" title="AO Divergence Filter">💎</span>
+          <span [class.active]="settings.soundEnabled" title="Sound Alerts">🔊</span>
+          <span class="long" [class.off]="!settings.showLong">📈 L</span>
+          <span class="short" [class.off]="!settings.showShort">📉 S</span>
+        </div>
+
+        <span class="summary-divider">|</span>
+
+        <!-- Group 5: The "Grid Master" (Interactive TP Grid) -->
+        @if (settings.useTPGrid) {
+          <div class="summary-group tp-grid-summary">
+            <span>🎯 Grid: <b>{{settings.tpGrid.length}} lvl</b></span>
+            <div class="grid-tooltip">
+              @for (lvl of settings.tpGrid; track $index) {
+                <div>{{lvl.movePercent}}% → {{lvl.volumePercent}}% @if(lvl.triggerBE){ [BE] }</div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
 
     <div class="status-panel">
       <div class="status-item">

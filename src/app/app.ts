@@ -60,6 +60,7 @@ export class App implements OnInit, OnDestroy {
     minLvlStrength: 2.5,
     minRR: 1.5,
     maxRR: 3.0,
+    maxStopPercent: 1.5,
     soundEnabled: true,
     holdStale: false,
     showLong: true,
@@ -305,6 +306,16 @@ export class App implements OnInit, OnDestroy {
     const signal = Strategy.detectTradeSignal(kline, volMult, prevVolMult, ctx, history, tf, this.settings, this.symbolTickSizes, this.symbolQuotes);
 
     if (signal) {
+      // Apply Max Stop Loss Filter
+      const slDistance = Math.abs(signal.entryPrice - signal.stopLoss);
+      const slPercent = (slDistance / signal.entryPrice) * 100;
+      
+      if (slPercent > this.settings.maxStopPercent) {
+        this.activeSignals.delete(key);
+        this.uiUpdate$.next();
+        return;
+      }
+
       const existing = this.activeSignals.get(key);
       const isNew = !existing;
       

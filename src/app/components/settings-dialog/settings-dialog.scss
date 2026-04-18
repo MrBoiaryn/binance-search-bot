@@ -104,6 +104,10 @@
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-bottom: 12px;
+
+  &.full-width {
+    grid-template-columns: 1fr;
+  }
 }
 
 .input-block {
@@ -117,6 +121,14 @@
     color: #eaecef;
     outline: none;
     &:focus { border-color: #f3ba2f; }
+  }
+
+  .hint-text {
+    display: block;
+    margin-top: 4px;
+    font-size: 10px;
+    color: #848e9c;
+    font-style: italic;
   }
 }
 

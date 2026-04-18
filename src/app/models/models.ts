@@ -98,6 +98,7 @@ export interface ScannerSettings {
   minLvlStrength: number;
   minRR: number;
   maxRR: number;
+  maxStopPercent: number;
 
   minProfitThreshold: number;
 

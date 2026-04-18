@@ -1,0 +1,84 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-container {
+  max-width: 800px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: #1e2329;
+  border-radius: 12px;
+  border: 1px solid #474d57;
+  display: flex;
+  flex-direction: column;
+  color: #eaecef;
+}
+
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #474d57;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    color: #848e9c;
+    font-size: 28px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+
+    &:hover {
+      color: #eaecef;
+    }
+  }
+}
+
+.modal-content {
+  padding: 24px;
+  flex: 1;
+
+  .guide-placeholder {
+    color: #848e9c;
+    text-align: center;
+    padding: 40px 0;
+  }
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #474d57;
+  display: flex;
+  justify-content: flex-end;
+
+  .got-it-btn {
+    background: #f0b90b;
+    color: #1e2329;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+
+    &:hover {
+      background: #fcd535;
+    }
+  }
+}

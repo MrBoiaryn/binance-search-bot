@@ -20,11 +20,12 @@ import { Header } from './components/header/header';
 import { SignalCard } from './components/signal-card/signal-card';
 import { HistoryTable } from './components/history-table/history-table';
 import { SettingsDialog } from './components/settings-dialog/settings-dialog';
+import { HelpDialogComponent } from './components/help-dialog/help-dialog';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, Header, SignalCard, HistoryTable, SettingsDialog],
+  imports: [CommonModule, FormsModule, Header, SignalCard, HistoryTable, SettingsDialog, HelpDialogComponent],
   templateUrl: './app.html',
   styleUrls: ['./app.scss']
 })
@@ -48,6 +49,7 @@ export class App implements OnInit, OnDestroy {
 
   // --- НАЛАШТУВАННЯ ---
   isSettingsOpen = false;
+  isHelpOpen = false;
   settings: ScannerSettings = {
     marketType: MarketType.FUTURES,
     timeframes: ['1m'],

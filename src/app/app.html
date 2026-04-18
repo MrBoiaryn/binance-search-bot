@@ -1,7 +1,8 @@
 <div class="app-wrapper">
   <app-header
     [settings]="settings"
-    (openSettings)="isSettingsOpen = true">
+    (openSettings)="isSettingsOpen = true"
+    (openHelp)="isHelpOpen = true">
   </app-header>
 
   <div class="signals-header">
@@ -42,4 +43,6 @@
     (save)="onSettingsUpdated($event); isSettingsOpen = false"
     (close)="isSettingsOpen = false">
   </app-settings-dialog>
+
+  <app-help-dialog [isOpen]="isHelpOpen" (close)="isHelpOpen = false"></app-help-dialog>
 </div>

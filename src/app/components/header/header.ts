@@ -15,6 +15,7 @@ import { MarketType } from '../../core/constants/trade-enums';
 export class Header {
   @Input() settings!: ScannerSettings;
   @Output() openSettings = new EventEmitter<void>();
+  @Output() openHelp = new EventEmitter<void>();
 
   readonly MarketType = MarketType;
 }

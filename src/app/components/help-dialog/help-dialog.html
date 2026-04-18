@@ -1,0 +1,18 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onClose()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Sniper PRO Guide</h2>
+        <button class="close-btn" (click)="onClose()">×</button>
+      </div>
+      <div class="modal-content">
+        <div class="guide-placeholder">
+          Content coming soon...
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="got-it-btn" (click)="onClose()">Got it</button>
+      </div>
+    </div>
+  </div>
+}

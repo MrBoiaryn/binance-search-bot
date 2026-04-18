@@ -40,7 +40,6 @@ export class App implements OnInit, OnDestroy {
   volumeAverages: Map<string, number> = new Map();
   symbolTickSizes: Map<string, number> = new Map();
   private symbolQuotes: Map<string, string> = new Map();
-  private clusterTracker: Map<string, number> = new Map();
 
   private socketSubscriptions: Map<string, Subscription> = new Map();
   private destroy$ = new Subject<void>();
@@ -61,7 +60,6 @@ export class App implements OnInit, OnDestroy {
     minLvlStrength: 2.5,
     minRR: 1.5,
     maxRR: 3.0,
-    maxClusterSize: 4,
     soundEnabled: true,
     holdStale: false,
     showLong: true,
@@ -80,7 +78,6 @@ export class App implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private storage: TradeStorageService,
   ) {
-    interval(60000).pipe(takeUntil(this.destroy$)).subscribe(() => this.clusterTracker.clear());
     this.uiUpdate$.pipe(
       auditTime(500),
       takeUntil(this.destroy$)
@@ -279,7 +276,7 @@ export class App implements OnInit, OnDestroy {
     const prevVolMult = Indicators.calculateVolMult(lastCandle, tf, avgVol);
 
     const ctx = ScannerContext.createPatternContext(kline, history, this.settings);
-    const signal = Strategy.detectTradeSignal(kline, volMult, prevVolMult, ctx, history, tf, this.settings, this.clusterTracker, this.symbolTickSizes, this.symbolQuotes);
+    const signal = Strategy.detectTradeSignal(kline, volMult, prevVolMult, ctx, history, tf, this.settings, this.symbolTickSizes, this.symbolQuotes);
 
     if (signal) {
       const isNew = !this.activeSignals.has(key);

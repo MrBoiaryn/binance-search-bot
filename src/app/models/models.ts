@@ -97,7 +97,6 @@ export interface ScannerSettings {
   minRR: number;
   maxRR: number;
 
-  maxClusterSize: number;
   minProfitThreshold: number;
 
   soundEnabled: boolean;

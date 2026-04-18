@@ -11,16 +11,10 @@ export function detectTradeSignal(
   history: any[],
   tf: string,
   settings: ScannerSettings,
-  clusterTracker: Map<string, number>,
   symbolTickSizes: Map<string, number>,
   symbolQuotes: Map<string, string>
 ): TradeSignal | null {
   if (settings.useDivergence && !ctx.hasDivergence) return null;
-
-  const isTooDense = (name: string, type: SignalSide) => {
-    const key = `${name}_${type}_${tf}`;
-    return (clusterTracker.get(key) || 0) >= settings.maxClusterSize;
-  };
 
   // LONG
   if (settings.showLong) {
@@ -32,13 +26,12 @@ export function detectTradeSignal(
 
         const isAtBottom = (name === PatternType.INSIDE) ? ctx.isMotherBarBottom : ctx.isLocalBottom;
 
-        if (isAtBottom && !isTooDense(name, SignalSide.LONG)) {
+        if (isAtBottom) {
           const isAnomalousVol = effectiveVol >= (settings.minVolMult * 2.5);
           const suffix = isAnomalousVol ? ' 🔥' : (ctx.hasDivergence ? ' 💎' : '');
           const signal = createSignal(kline, SignalSide.LONG, `${name}${suffix}`, effectiveVol, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
 
           if (isValidSignal(signal, settings)) {
-            clusterTracker.set(`${name}_${SignalSide.LONG}_${tf}`, (clusterTracker.get(`${name}_${SignalSide.LONG}_${tf}`) || 0) + 1);
             return signal;
           }
         }
@@ -56,13 +49,12 @@ export function detectTradeSignal(
 
         const isAtPeak = (name === PatternType.INSIDE) ? ctx.isMotherBarPeak : ctx.isLocalPeak;
 
-        if (isAtPeak && !isTooDense(name, SignalSide.SHORT)) {
+        if (isAtPeak) {
           const isAnomalousVol = effectiveVol >= (settings.minVolMult * 2.5);
           const suffix = isAnomalousVol ? ' 🔥' : (ctx.hasDivergence ? ' 💎' : '');
           const signal = createSignal(kline, SignalSide.SHORT, `${name}${suffix}`, effectiveVol, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
 
           if (isValidSignal(signal, settings)) {
-            clusterTracker.set(`${name}_${SignalSide.SHORT}_${tf}`, (clusterTracker.get(`${name}_${SignalSide.SHORT}_${tf}`) || 0) + 1);
             return signal;
           }
         }

@@ -128,6 +128,14 @@
             </div>
 
             @if (localSettings.useTPGrid) {
+              <div class="fibo-preset-wrapper">
+                <label class="checkbox-container">
+                  <input type="checkbox" [(ngModel)]="localSettings.useFiboGrid" (change)="applyFiboPreset()">
+                  <span class="checkmark"></span>
+                  <span class="label-text">Use Fibonacci Grid (0.236 - 1.0) 🎯</span>
+                </label>
+              </div>
+
               <div class="grid-table">
                 <div class="grid-table-head">
                   <span>Move %</span>
@@ -138,7 +146,7 @@
 
                 @for (level of localSettings.tpGrid; track $index) {
                   <div class="grid-row">
-                    <input type="number" [(ngModel)]="level.movePercent" class="grid-input">
+                    <input type="number" [(ngModel)]="level.movePercent" (ngModelChange)="onMovePercentChange()" class="grid-input">
                     <input type="number" [(ngModel)]="level.volumePercent" class="grid-input">
                     <input type="checkbox" [(ngModel)]="level.triggerBE" (change)="onBeToggle($index)" class="be-check">
                     <span class="remove-btn" (click)="removeTpLevel($index)">×</span>

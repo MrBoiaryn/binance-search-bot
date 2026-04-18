@@ -38,8 +38,8 @@
       <div class="stat-value">{{ sig.swingStrength | number:'1.2-2' }}%</div>
     </div>
     <div class="stat-box" [class.high-liq]="sig.liqAmount > 5000">
-      <div class="stat-label">Лікв.</div>
-      <div class="stat-value">${{ sig.liqAmount | number:'1.0-0' }}</div>
+      <div class="stat-label">Об'єм $</div>
+      <div class="stat-value">${{ sig.volumeUsd | number:'1.0-0' }}</div>
     </div>
   </div>
 

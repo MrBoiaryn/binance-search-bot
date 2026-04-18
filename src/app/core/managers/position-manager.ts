@@ -76,7 +76,7 @@ export function processTick(
       }
     }
 
-    // --- 3. ПЕРЕВІРКА СТАТУСІВ ---
+    // --- 3. ПЕРЕВІРКА СТАТУСІВ ТА GRID ---
     if (log.type === SignalSide.LONG) {
       if (!log.isOpened) {
         if (low <= log.sl) {
@@ -86,12 +86,16 @@ export function processTick(
           log.isOpened = true;
           log.status = PositionStatus.OPENED;
           
-          // Calculate BE trigger price from Grid
+          // Calculate levels prices for grid
           if (log.tpGrid && log.tpGrid.length > 0) {
+            const distance = Math.abs(log.tp - log.price);
+            log.tpGrid.forEach(level => {
+              (level as any).price = log.price + (distance * (level.movePercent / 100));
+            });
+            
             const beLevel = (log.tpGrid as TPGridLevel[]).find((l: TPGridLevel) => l.triggerBE);
             if (beLevel) {
-              const distance = Math.abs(log.tp - log.price);
-              log.beTriggerPrice = log.price + (distance * (beLevel.movePercent / 100));
+              log.beTriggerPrice = (beLevel as any).price;
             }
           } else if (log.beLevelPct) { // Fallback for old logs
             const distance = Math.abs(log.tp - log.price);
@@ -101,14 +105,23 @@ export function processTick(
           updated = true;
         }
       } else {
-        // Multi-TP logic could go here
+        // Handle TP Grid
+        if (log.tpGrid && log.tpGrid.length > 0) {
+          log.tpGrid.forEach(level => {
+            if (!level.isHit && high >= (level as any).price) {
+              level.isHit = true;
+              updated = true;
+            }
+          });
+        }
+
         if (low <= log.sl) {
           log.status = PositionStatus.SL;
-          log.pnl = ((log.sl - log.price) / log.price * 100) - (feeRate * 2 * 100);
+          log.pnl = calculatePnLWithGrid(log, log.sl, feeRate);
           updated = true;
         } else if (high >= log.tp) {
           log.status = PositionStatus.TP;
-          log.pnl = ((log.tp - log.price) / log.price * 100) - (feeRate * 2 * 100);
+          log.pnl = calculatePnLWithGrid(log, log.tp, feeRate);
           updated = true;
         }
       }
@@ -121,12 +134,16 @@ export function processTick(
           log.isOpened = true;
           log.status = PositionStatus.OPENED;
 
-          // Calculate BE trigger price from Grid
+          // Calculate levels prices for grid
           if (log.tpGrid && log.tpGrid.length > 0) {
+            const distance = Math.abs(log.tp - log.price);
+            log.tpGrid.forEach(level => {
+              (level as any).price = log.price - (distance * (level.movePercent / 100));
+            });
+
             const beLevel = (log.tpGrid as TPGridLevel[]).find((l: TPGridLevel) => l.triggerBE);
             if (beLevel) {
-              const distance = Math.abs(log.tp - log.price);
-              log.beTriggerPrice = log.price - (distance * (beLevel.movePercent / 100));
+              log.beTriggerPrice = (beLevel as any).price;
             }
           } else if (log.beLevelPct) { // Fallback for old logs
             const distance = Math.abs(log.tp - log.price);
@@ -136,13 +153,23 @@ export function processTick(
           updated = true;
         }
       } else {
+        // Handle TP Grid
+        if (log.tpGrid && log.tpGrid.length > 0) {
+          log.tpGrid.forEach(level => {
+            if (!level.isHit && low <= (level as any).price) {
+              level.isHit = true;
+              updated = true;
+            }
+          });
+        }
+
         if (high >= log.sl) {
           log.status = PositionStatus.SL;
-          log.pnl = ((log.price - log.sl) / log.price * 100) - (feeRate * 2 * 100);
+          log.pnl = calculatePnLWithGrid(log, log.sl, feeRate);
           updated = true;
         } else if (low <= log.tp) {
           log.status = PositionStatus.TP;
-          log.pnl = ((log.price - log.tp) / log.price * 100) - (feeRate * 2 * 100);
+          log.pnl = calculatePnLWithGrid(log, log.tp, feeRate);
           updated = true;
         }
       }
@@ -150,4 +177,40 @@ export function processTick(
   }
 
   return updated;
+}
+
+function calculatePnLWithGrid(log: HistoricalLog, exitPrice: number, feeRate: number): number {
+  if (!log.tpGrid || log.tpGrid.length === 0) {
+    const rawPnL = log.type === SignalSide.LONG
+      ? (exitPrice - log.price) / log.price
+      : (log.price - exitPrice) / log.price;
+    return (rawPnL - feeRate * 2) * 100;
+  }
+
+  let totalPnL = 0;
+  let closedVolume = 0;
+
+  log.tpGrid.forEach(level => {
+    if (level.isHit) {
+      const levelPrice = (level as any).price || log.tp;
+      const levelPnL = log.type === SignalSide.LONG
+        ? (levelPrice - log.price) / log.price
+        : (log.price - levelPrice) / log.price;
+      
+      const volShare = level.volumePercent / 100;
+      totalPnL += (levelPnL - feeRate * 2) * volShare;
+      closedVolume += level.volumePercent;
+    }
+  });
+
+  if (closedVolume < 100) {
+    const remainingVolShare = (100 - closedVolume) / 100;
+    const remainingPnL = log.type === SignalSide.LONG
+      ? (exitPrice - log.price) / log.price
+      : (log.price - exitPrice) / log.price;
+    
+    totalPnL += (remainingPnL - feeRate * 2) * remainingVolShare;
+  }
+
+  return totalPnL * 100;
 }

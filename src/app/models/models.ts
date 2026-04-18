@@ -107,6 +107,7 @@ export interface ScannerSettings {
   useDivergence: boolean;
 
   useTPGrid: boolean;
+  useFiboGrid: boolean;
   tpGrid: TPGridLevel[];
   tpGridSettings?: TPGridLevel[];
 }

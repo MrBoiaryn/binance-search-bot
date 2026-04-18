@@ -68,8 +68,14 @@ export class App implements OnInit, OnDestroy {
     trailingBars: 5,
     minProfitThreshold: 0.7,
     useTPGrid: true,
+    useFiboGrid: true,
     tpGrid: [
-      { movePercent: 50, volumePercent: 100, triggerBE: true }
+      { movePercent: 23.6, volumePercent: 20, triggerBE: false },
+      { movePercent: 38.2, volumePercent: 30, triggerBE: true },
+      { movePercent: 50.0, volumePercent: 20, triggerBE: false },
+      { movePercent: 61.8, volumePercent: 15, triggerBE: false },
+      { movePercent: 78.6, volumePercent: 10, triggerBE: false },
+      { movePercent: 100.0, volumePercent: 5, triggerBE: false }
     ]
   };
 
@@ -348,6 +354,7 @@ export class App implements OnInit, OnDestroy {
       lvlStrength: sig.lvlStrength,
       status: PositionStatus.PENDING,
       quoteAsset: sig.quoteAsset,
+      marketType: this.settings.marketType, // Save marketType into log
       isOpened: false,
       hasDivergence: sig.hasDivergence,
       useTPGrid: this.settings.useTPGrid,

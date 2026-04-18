@@ -1,8 +1,17 @@
 import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ScannerSettings } from '../../models/models';
+import { ScannerSettings, TPGridLevel } from '../../models/models';
 import { MarketType } from '../../core/constants/trade-enums';
+
+const FIBO_LEVELS: TPGridLevel[] = [
+  { movePercent: 23.6, volumePercent: 20, triggerBE: false },
+  { movePercent: 38.2, volumePercent: 30, triggerBE: true },
+  { movePercent: 50.0, volumePercent: 20, triggerBE: false },
+  { movePercent: 61.8, volumePercent: 15, triggerBE: false },
+  { movePercent: 78.6, volumePercent: 10, triggerBE: false },
+  { movePercent: 100.0, volumePercent: 5, triggerBE: false }
+];
 
 @Component({
   selector: 'app-settings-dialog',
@@ -46,12 +55,22 @@ export class SettingsDialog implements OnChanges {
       }
       this.localSettings.timeframes.push(tf);
     } else {
-      this.localSettings.timeframes = this.localSettings.timeframes.filter(t => t !== tf);
+      this.localSettings.timeframes = this.localSettings.timeframes.filter(t => t !== t);
     }
   }
 
   isTfSelected(tf: string): boolean {
     return this.localSettings.timeframes.includes(tf);
+  }
+
+  applyFiboPreset() {
+    if (this.localSettings.useFiboGrid) {
+      this.localSettings.tpGrid = JSON.parse(JSON.stringify(FIBO_LEVELS));
+    }
+  }
+
+  onMovePercentChange() {
+    this.localSettings.useFiboGrid = false;
   }
 
   addTpLevel() {
@@ -61,10 +80,12 @@ export class SettingsDialog implements OnChanges {
       volumePercent: 100 / (this.localSettings.tpGrid.length + 1),
       triggerBE: false
     });
+    this.localSettings.useFiboGrid = false;
   }
 
   removeTpLevel(index: number) {
     this.localSettings.tpGrid.splice(index, 1);
+    this.localSettings.useFiboGrid = false;
   }
 
   onBeToggle(index: number) {
@@ -73,6 +94,7 @@ export class SettingsDialog implements OnChanges {
         if (i !== index) level.triggerBE = false;
       });
     }
+    this.localSettings.useFiboGrid = false;
   }
 
   get totalTpVolume(): number {

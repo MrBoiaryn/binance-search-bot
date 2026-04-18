@@ -25,8 +25,11 @@
     display: flex;
     align-items: center;
     gap: 20px;
-    .online { color: #0ecb81; }
-    .dot { height: 8px; width: 8px; background: #0ecb81; border-radius: 50%; display: inline-block; box-shadow: 0 0 10px #0ecb81; }
+    .dot {
+      height: 8px; width: 8px; background: #0ecb81; border-radius: 50%;
+      display: inline-block; box-shadow: 0 0 10px #0ecb81;
+    }
+    .online { color: #0ecb81; font-weight: bold; }
   }
 
   .settings-main-grid {
@@ -50,7 +53,6 @@
     }
   }
 
-  // СІТКА ТАЙМФРЕЙМІВ
   .tf-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -96,10 +98,9 @@
       outline: none;
       &:focus { border-color: #f3ba2f; }
     }
-    .highlight-input { color: #0ecb81; font-weight: bold; }
   }
 
-  // КНОПКИ НАПРЯМКУ ТА СТРАТЕГІЇ
+  // СТРАТЕГІЯ ТА НАПРЯМКИ
   .strategy-toggles {
     display: flex;
     flex-direction: column;
@@ -130,6 +131,106 @@
     }
   }
 
+  // НАЛАШТУВАННЯ СІТКИ ТЕЙКІВ (TP GRID)
+  .tp-grid-container {
+    margin-top: 15px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+
+    .tp-grid-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+
+      .grid-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        color: #eaecef;
+        font-size: 12px;
+      }
+
+      .add-level-btn {
+        background: #0ecb81;
+        border: none;
+        color: #fff;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 10px;
+        cursor: pointer;
+        font-weight: bold;
+        &:hover { background: #0bad6e; }
+      }
+    }
+
+    .grid-table {
+      font-size: 10px;
+
+      .grid-table-head {
+        display: grid;
+        grid-template-columns: 2fr 2fr 1fr 0.5fr;
+        gap: 5px;
+        color: #848e9c;
+        margin-bottom: 5px;
+        padding: 0 5px;
+        font-weight: bold;
+      }
+
+      .grid-row {
+        display: grid;
+        grid-template-columns: 2fr 2fr 1fr 0.5fr;
+        gap: 5px;
+        align-items: center;
+        margin-bottom: 4px;
+        background: rgba(0, 0, 0, 0.2);
+        padding: 4px;
+        border-radius: 4px;
+
+        .grid-input {
+          background: transparent;
+          border: 1px solid #474d57;
+          color: #fff;
+          width: 100%;
+          padding: 2px 4px;
+          border-radius: 3px;
+          outline: none;
+          &:focus { border-color: #f3ba2f; }
+        }
+
+        .be-check {
+          cursor: pointer;
+          justify-self: center;
+        }
+
+        .remove-btn {
+          color: #f6465d;
+          cursor: pointer;
+          text-align: center;
+          font-weight: bold;
+          font-size: 14px;
+          &:hover { color: #ff6075; }
+        }
+      }
+    }
+
+    .volume-error {
+      color: #f6465d;
+      font-size: 9px;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      background: rgba(246, 70, 93, 0.1);
+      border-radius: 4px;
+    }
+  }
+
   .misc-settings {
     display: flex;
     flex-direction: column;
@@ -148,12 +249,5 @@
     transition: transform 0.1s;
     &:active { transform: scale(0.95); }
     &:hover { background: #f0b90b; box-shadow: 0 0 15px rgba(243, 186, 47, 0.3); }
-  }
-}
-
-.trailing-input {
-  border-color: #f3ba2f !important; // Золотистий колір Binance для Pro-налаштування
-  &:focus {
-    box-shadow: 0 0 5px rgba(243, 186, 47, 0.4);
   }
 }

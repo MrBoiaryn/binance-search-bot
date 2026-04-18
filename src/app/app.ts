@@ -15,7 +15,7 @@ import * as ScannerContext from './core/engine/scanner-context';
 import * as Strategy from './core/strategies/counter-trend.strategy';
 
 // Моделі та компоненти
-import { HistoricalLog, ScannerSettings, TradeSignal } from './models/models';
+import { HistoricalLog, ScannerSettings, TradeSignal, TPGridLevel } from './models/models';
 import { Header } from './components/header/header';
 import { SignalCard } from './components/signal-card/signal-card';
 import { HistoryTable } from './components/history-table/history-table';
@@ -65,8 +65,10 @@ export class App implements OnInit, OnDestroy {
     useDivergence: false,
     trailingBars: 5,
     minProfitThreshold: 0.7,
-    useBE: true,
-    beLevelPct: 50
+    useTPGrid: true,
+    tpGrid: [
+      { movePercent: 50, volumePercent: 100, triggerBE: true }
+    ]
   };
 
   constructor(
@@ -112,7 +114,18 @@ export class App implements OnInit, OnDestroy {
 
   private loadInitialConfig() {
     const saved = this.storage.loadSettings();
-    if (saved) this.settings = { ...this.settings, ...saved };
+    if (saved) {
+      this.settings = { ...this.settings, ...saved };
+      // Migration for old settings
+      if (!(this.settings as any).tpGrid && (this.settings as any).useBE) {
+        this.settings.useTPGrid = true;
+        this.settings.tpGrid = [{
+          movePercent: (this.settings as any).beLevelPct || 50,
+          volumePercent: 100,
+          triggerBE: true
+        }];
+      }
+    }
     this.lastSignalsHistory = this.storage.loadHistory();
   }
 
@@ -295,8 +308,8 @@ export class App implements OnInit, OnDestroy {
       quoteAsset: sig.quoteAsset,
       isOpened: false,
       hasDivergence: sig.hasDivergence,
-      useBE: this.settings.useBE,
-      beLevelPct: this.settings.beLevelPct,
+      useTPGrid: this.settings.useTPGrid,
+      tpGrid: this.settings.useTPGrid ? JSON.parse(JSON.stringify(this.settings.tpGrid)) : undefined,
       volumeUsd: sig.volumeUsd
     });
     if (this.lastSignalsHistory.length > 3000) this.lastSignalsHistory.pop();

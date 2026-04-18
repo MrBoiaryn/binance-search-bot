@@ -1,13 +1,13 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { HistoricalLog } from '../../models/models';
-import { DecimalPipe } from '@angular/common';
+import { HistoricalLog, TPGridLevel } from '../../models/models';
+import { CommonModule, DecimalPipe } from '@angular/common';
 import { generateBinanceLink } from '../../utils/link-helper';
 import { MarketType, PositionStatus, SignalSide } from '../../core/constants/trade-enums';
 
 @Component({
   selector: 'app-history-table',
   standalone: true,
-  imports: [DecimalPipe],
+  imports: [CommonModule, DecimalPipe],
   templateUrl: './history-table.html',
   styleUrl: './history-table.scss',
 })
@@ -39,5 +39,10 @@ export class HistoryTable {
   getPercent(price: number, target: number): number {
     if (!price || !target) return 0;
     return (Math.abs(target - price) / price) * 100;
+  }
+
+  getHitCount(exitGrid?: TPGridLevel[]): number {
+    if (!exitGrid) return 0;
+    return exitGrid.filter(l => l.isHit).length;
   }
 }

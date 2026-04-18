@@ -14,6 +14,16 @@ export interface KlineData {
   amount?: number;
 }
 
+export interface TPGridLevel {
+  level?: number;      // e.g., 0.5, 0.618
+  price?: number;
+  closePct?: number;   // e.g., 20
+  movePercent: number; // For backward compatibility with previous steps
+  volumePercent: number; // For backward compatibility with previous steps
+  isHit?: boolean;
+  triggerBE: boolean;
+}
+
 export interface TradeSignal {
   symbol: string;
   type: SignalSide;
@@ -34,6 +44,7 @@ export interface TradeSignal {
   lvlStrength: number;
   hasDivergence: boolean;
   volumeUsd?: number;
+  tpGrid?: TPGridLevel[];
 }
 
 export interface HistoricalLog {
@@ -61,8 +72,12 @@ export interface HistoricalLog {
 
   beTriggered?: boolean;
   beTriggerPrice?: number;
-  useBE?: boolean;
-  beLevelPct?: number;
+  useBE?: boolean; // Legacy fallback
+  beLevelPct?: number; // Legacy fallback
+  useFibGrid?: boolean; // New field for grid activation
+  exitGrid?: TPGridLevel[]; // Fibonacci Exit Grid
+  tpGrid?: TPGridLevel[];
+  useTPGrid?: boolean;
   marketType?: MarketType;
   volumeUsd?: number;
 }
@@ -91,8 +106,9 @@ export interface ScannerSettings {
   showShort: boolean;
   useDivergence: boolean;
 
-  useBE: boolean;
-  beLevelPct: number;
+  useTPGrid: boolean;
+  tpGrid: TPGridLevel[];
+  tpGridSettings?: TPGridLevel[];
 }
 
 export interface PatternContext {

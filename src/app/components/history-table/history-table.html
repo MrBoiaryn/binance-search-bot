@@ -51,7 +51,7 @@
         <th>Вхід</th>
         <th>Stop Price</th>
         <th>Stop %</th>
-        <th>Take Price</th>
+        <th>Take Price (Grid)</th>
         <th>Take %</th>
         <th>R/R</th>
         <th>Vol X</th>
@@ -103,7 +103,22 @@
             </td>
 
             <td class="tp-cell">
-                <span class="current-price">{{log.tp | number:'1.2-8'}}</span>
+                @if (log.useFibGrid && log.exitGrid && log.exitGrid.length > 0) {
+                  <div class="tp-grid-display" style="display: flex; flex-direction: column; gap: 2px;">
+                    <div style="font-size: 9px; color: #848e9c; margin-bottom: 2px;">
+                      {{ getHitCount(log.exitGrid) }}/{{ log.exitGrid.length }} Hits
+                    </div>
+                    @for (level of log.exitGrid; track level.movePercent) {
+                      <div class="tp-level-row" [style.color]="level.isHit ? '#0ecb81' : '#848e9c'" style="font-size: 10px; display: flex; align-items: center; gap: 4px; white-space: nowrap;">
+                        @if (level.isHit) { <span>✓</span> }
+                        <span>{{ (level.price || 0) | number:'1.2-8' }}</span>
+                        <span style="font-size: 8px;">({{ level.volumePercent }}%)</span>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <span class="current-price">{{log.tp | number:'1.2-8'}}</span>
+                }
             </td>
             <td class="tp-pct-cell" style="color: #0ecb81;">
                 {{ getPercent(log.price, log.tp) | number:'1.2-2' }}%

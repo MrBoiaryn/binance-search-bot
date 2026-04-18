@@ -1,4 +1,4 @@
-import { HistoricalLog } from '../../models/models';
+import { HistoricalLog, TPGridLevel } from '../../models/models';
 import { MarketType, PositionStatus, SignalSide } from '../constants/trade-enums';
 import { getMarketFee } from '../constants/trading-constants';
 import { calculateTrueBreakeven } from '../math/trading-math';
@@ -13,7 +13,6 @@ export function processTick(
 ): boolean {
   let updated = false;
 
-  // Шукаємо активні угоди для поточної монети та ТФ
   const activeLogs = history.filter(log =>
     log.symbol === kline.symbol &&
     log.timeframe === kline.tf &&
@@ -28,33 +27,31 @@ export function processTick(
     const currentPrice = kline.close;
     const feeRate = getMarketFee(log.marketType || marketType);
 
-    // --- 1. ЛОГІКА ТРЕЙЛІНГ-СТОПУ ---
+    // --- 1. ТРЕЙЛІНГ-СТОПУ ---
     if (log.status === PositionStatus.OPENED && trailingBars > 0 && symbolHistory.length >= trailingBars) {
       const lastBars = symbolHistory.slice(-trailingBars);
 
       if (log.type === SignalSide.LONG) {
         const minLow = Math.min(...lastBars.map(b => b.low));
         const newSl = minLow - tickSize;
-
         if (newSl > log.sl) {
-          if (!log.initialSl) log.initialSl = log.sl; // Зберігаємо стартовий стоп для UI
+          if (!log.initialSl) log.initialSl = log.sl;
           log.sl = newSl;
           updated = true;
         }
       } else if (log.type === SignalSide.SHORT) {
         const maxHigh = Math.max(...lastBars.map(b => b.high));
         const newSl = maxHigh + tickSize;
-
         if (newSl < log.sl) {
-          if (!log.initialSl) log.initialSl = log.sl; // Зберігаємо стартовий стоп для UI
+          if (!log.initialSl) log.initialSl = log.sl;
           log.sl = newSl;
           updated = true;
         }
       }
     }
 
-    // --- 2. ЛОГІКА DYNAMIC BREAKEVEN ---
-    if (log.useBE && log.status === PositionStatus.OPENED && !log.beTriggered && log.beTriggerPrice) {
+    // --- 2. DYNAMIC BREAKEVEN (from TP Grid) ---
+    if (log.status === PositionStatus.OPENED && !log.beTriggered && log.beTriggerPrice) {
       const isBeTriggered = log.type === SignalSide.LONG
         ? high >= log.beTriggerPrice
         : low <= log.beTriggerPrice;
@@ -62,7 +59,6 @@ export function processTick(
       if (isBeTriggered) {
         if (!log.initialSl) log.initialSl = log.sl;
         
-        // Calculate True Breakeven Price
         const trueBePrice = calculateTrueBreakeven(
           log.price,
           log.type as SignalSide,
@@ -70,7 +66,6 @@ export function processTick(
           tickSize
         );
 
-        // Перевіряємо чи новий стоп кращий за поточний (наприклад, Trailing Stop міг бути вже вище)
         const isBetter = log.type === SignalSide.LONG ? trueBePrice > log.sl : trueBePrice < log.sl;
         if (isBetter) {
           log.sl = trueBePrice;
@@ -81,7 +76,7 @@ export function processTick(
       }
     }
 
-    // --- 3. ПЕРЕВІРКА СТАТУСІВ (Песимістична модель) ---
+    // --- 3. ПЕРЕВІРКА СТАТУСІВ ---
     if (log.type === SignalSide.LONG) {
       if (!log.isOpened) {
         if (low <= log.sl) {
@@ -91,7 +86,14 @@ export function processTick(
           log.isOpened = true;
           log.status = PositionStatus.OPENED;
           
-          if (log.useBE && log.beLevelPct) {
+          // Calculate BE trigger price from Grid
+          if (log.tpGrid && log.tpGrid.length > 0) {
+            const beLevel = (log.tpGrid as TPGridLevel[]).find((l: TPGridLevel) => l.triggerBE);
+            if (beLevel) {
+              const distance = Math.abs(log.tp - log.price);
+              log.beTriggerPrice = log.price + (distance * (beLevel.movePercent / 100));
+            }
+          } else if (log.beLevelPct) { // Fallback for old logs
             const distance = Math.abs(log.tp - log.price);
             log.beTriggerPrice = log.price + (distance * (log.beLevelPct / 100));
           }
@@ -99,6 +101,7 @@ export function processTick(
           updated = true;
         }
       } else {
+        // Multi-TP logic could go here
         if (low <= log.sl) {
           log.status = PositionStatus.SL;
           log.pnl = ((log.sl - log.price) / log.price * 100) - (feeRate * 2 * 100);
@@ -118,7 +121,14 @@ export function processTick(
           log.isOpened = true;
           log.status = PositionStatus.OPENED;
 
-          if (log.useBE && log.beLevelPct) {
+          // Calculate BE trigger price from Grid
+          if (log.tpGrid && log.tpGrid.length > 0) {
+            const beLevel = (log.tpGrid as TPGridLevel[]).find((l: TPGridLevel) => l.triggerBE);
+            if (beLevel) {
+              const distance = Math.abs(log.tp - log.price);
+              log.beTriggerPrice = log.price - (distance * (beLevel.movePercent / 100));
+            }
+          } else if (log.beLevelPct) { // Fallback for old logs
             const distance = Math.abs(log.tp - log.price);
             log.beTriggerPrice = log.price - (distance * (log.beLevelPct / 100));
           }

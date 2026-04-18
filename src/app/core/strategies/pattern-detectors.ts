@@ -134,6 +134,33 @@ export const bullishMomentum: DetectorFn = ({ kline, avgBody }) => {
 };
 
 /**
+ * REJECTION LONG: Сильне відторгнення ціни знизу.
+ * Характеризується екстремально довгим хвостом, який у 3+ рази більший за тіло.
+ */
+export const rejectionLONG: DetectorFn = ({ kline }) => {
+  const range = getRange(kline);
+  if (range === 0) return null;
+
+  const body = getBody(kline);
+  const lowerShadow = getLowerShadow(kline);
+  const upperShadow = getUpperShadow(kline);
+
+  // 1. Хвіст має бути домінуючим (мінімум 70% всієї свічки)
+  const isExtremeTail = lowerShadow >= range * 0.7;
+
+  // 2. Хвіст має бути мінімум у 3 рази більшим за тіло (головна відмінність від звичайного молота)
+  const tailVsBody = lowerShadow >= body * 3;
+
+  // 3. Тіло знаходиться у верхній частині свічки
+  // (ми дозволяємо невелику верхню тінь, але вона має бути значно меншою за нижню)
+  const isAtTop = upperShadow < lowerShadow * 0.2;
+
+  // 4. Для Лонгу ідеально, якщо свічка закрилася вище, ніж відкрилася (зелена)
+  // хоча для Rejection колір менш важливий, ніж хвіст.
+  return (isExtremeTail && tailVsBody && isAtTop) ? PatternType.PIN_BAR : null;
+};
+
+/**
  * --- SHORT PATTERNS (Сигнали на продаж) ---
  * Логіка дзеркальна до LONG патернів.
  */
@@ -189,6 +216,21 @@ export const bearishMomentum: DetectorFn = ({ kline, avgBody }) => {
   return (isBearish(kline) && b > avgBody * 2.0 && b >= getRange(kline) * 0.9) ? PatternType.MOMENTUM : null;
 };
 
+export const rejectionSHORT: DetectorFn = ({ kline }) => {
+  const range = getRange(kline);
+  if (range === 0) return null;
+
+  const body = getBody(kline);
+  const upperShadow = getUpperShadow(kline);
+  const lowerShadow = getLowerShadow(kline);
+
+  const isExtremeTail = upperShadow >= range * 0.7;
+  const tailVsBody = upperShadow >= body * 3;
+  const isAtBottom = lowerShadow < upperShadow * 0.2;
+
+  return (isExtremeTail && tailVsBody && isAtBottom) ? PatternType.PIN_BAR : null;
+};
+
 /**
  * --- РЕЄСТРИ ---
  */
@@ -201,7 +243,8 @@ export const LONG_DETECTORS = [
   railsLONG,
   absorptionLONG,
   bullishMomentum,
-  insideBarDetector
+  insideBarDetector,
+  rejectionLONG
 ];
 
 export const SHORT_DETECTORS = [
@@ -212,5 +255,6 @@ export const SHORT_DETECTORS = [
   railsSHORT,
   absorptionSHORT,
   bearishMomentum,
-  insideBarDetector
+  insideBarDetector,
+  rejectionSHORT
 ];

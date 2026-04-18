@@ -154,9 +154,9 @@
 
               @if (log.status === PositionStatus.OPENED) {
                 <span class="badge opened">
-      У позиції
+                  У позиції
                   @if (log.beTriggered) { <span class="be-label">(BE Active)</span> }
-    </span>
+                </span>
               }
 
               @if (log.status === PositionStatus.CANCELLED) {
@@ -165,19 +165,19 @@
 
               @if (log.status === PositionStatus.TP) {
                 <span class="badge tp">
-      TP: {{ (log.pnl ?? 0) > 0 ? '+' : '' }}{{ log.pnl | number:'1.2-2' }}%
+                  TP: {{ (log.pnl ?? 0) > 0 ? '+' : '' }}{{ log.pnl | number:'1.2-2' }}%
                   @if (log.beTriggered) { <span class="be-label">(BE)</span> }
-    </span>
+                </span>
               }
 
               @if (log.status === PositionStatus.SL) {
                 <span class="badge"
                       [class.tp]="(log.pnl ?? 0) >= 0"
                       [class.sl]="(log.pnl ?? 0) < 0">
-      SL: {{ (log.pnl ?? 0) > 0 ? '+' : '' }}{{ log.pnl | number:'1.2-2' }}%
+                  SL: {{ (log.pnl ?? 0) > 0 ? '+' : '' }}{{ log.pnl | number:'1.2-2' }}%
                   @if (log.beTriggered) { <span class="be-label">(BE)</span> }
                   @if (getHitCount(log.tpGrid) > 0) { <span class="partial-label">Partial</span> }
-    </span>
+                </span>
               }
             </td>
           </tr>

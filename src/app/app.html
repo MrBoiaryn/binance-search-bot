@@ -1,7 +1,7 @@
 <div class="app-wrapper">
   <app-header
     [settings]="settings"
-    (settingsChanged)="onSettingsUpdated($event)">
+    (openSettings)="isSettingsOpen = true">
   </app-header>
 
   <div class="signals-header">
@@ -35,4 +35,11 @@
     (filterChanged)="setHistoryFilter($event)"
     (clearHistory)="onClearHistory()">
   </app-history-table>
+
+  <app-settings-dialog
+    [settings]="settings"
+    [isOpen]="isSettingsOpen"
+    (save)="onSettingsUpdated($event); isSettingsOpen = false"
+    (close)="isSettingsOpen = false">
+  </app-settings-dialog>
 </div>

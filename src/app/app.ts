@@ -19,11 +19,12 @@ import { HistoricalLog, ScannerSettings, TradeSignal, TPGridLevel } from './mode
 import { Header } from './components/header/header';
 import { SignalCard } from './components/signal-card/signal-card';
 import { HistoryTable } from './components/history-table/history-table';
+import { SettingsDialog } from './components/settings-dialog/settings-dialog';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, Header, SignalCard, HistoryTable],
+  imports: [CommonModule, FormsModule, Header, SignalCard, HistoryTable, SettingsDialog],
   templateUrl: './app.html',
   styleUrls: ['./app.scss']
 })
@@ -46,6 +47,7 @@ export class App implements OnInit, OnDestroy {
   private uiUpdate$ = new Subject<void>();
 
   // --- НАЛАШТУВАННЯ ---
+  isSettingsOpen = false;
   settings: ScannerSettings = {
     marketType: MarketType.FUTURES,
     timeframes: ['1m'],

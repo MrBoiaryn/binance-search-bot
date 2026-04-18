@@ -1,6 +1,6 @@
 .header-container {
   background: #161a1e;
-  padding: 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid #2b3139;
   color: #eaecef;
 
@@ -8,246 +8,71 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
 
     .brand {
       display: flex;
       align-items: center;
       gap: 12px;
       .logo-icon { font-size: 24px; }
-      h2 { margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px; }
-      .sub-text { margin: 0; font-size: 11px; color: #848e9c; }
-      .badge { background: #f3ba2f; color: #000; font-size: 10px; padding: 2px 6px; border-radius: 4px; }
+      h2 { margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+      .sub-text { margin: 0; font-size: 10px; color: #848e9c; }
+      .badge { background: #f3ba2f; color: #000; font-size: 9px; padding: 1px 4px; border-radius: 4px; }
     }
+  }
+
+  .summary-panel {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: #848e9c;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+
+    b { color: #eaecef; }
+    .summary-divider { color: #2b3139; }
   }
 
   .status-panel {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
+    .status-item {
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
     .dot {
       height: 8px; width: 8px; background: #0ecb81; border-radius: 50%;
-      display: inline-block; box-shadow: 0 0 10px #0ecb81;
-    }
-    .online { color: #0ecb81; font-weight: bold; }
-  }
-
-  .settings-main-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1.2fr;
-    gap: 24px;
-  }
-
-  .settings-section {
-    background: #1e2329;
-    padding: 16px;
-    border-radius: 12px;
-    border: 1px solid #2b3139;
-
-    .section-title {
-      font-size: 13px;
-      color: #848e9c;
-      margin: 0 0 16px 0;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      display: inline-block; box-shadow: 0 0 8px #0ecb81;
     }
   }
 
-  .tf-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 6px;
-    margin-top: 10px;
-
-    .tf-chip {
-      background: #2b3139;
-      border: 1px solid transparent;
-      padding: 6px;
-      text-align: center;
-      border-radius: 6px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.2s;
-      input { display: none; }
-      &:hover { border-color: #474d57; }
-      &.active {
-        background: rgba(243, 186, 47, 0.1);
-        border-color: #f3ba2f;
-        color: #f3ba2f;
-        font-weight: bold;
-      }
-    }
-  }
-
-  .params-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-
-  .input-block {
-    label { display: block; font-size: 11px; color: #848e9c; margin-bottom: 6px; }
-    select, input {
-      width: 100%;
-      background: #2b3139;
-      border: 1px solid #474d57;
-      border-radius: 6px;
-      padding: 8px;
-      color: #eaecef;
-      outline: none;
-      &:focus { border-color: #f3ba2f; }
-    }
-  }
-
-  // СТРАТЕГІЯ ТА НАПРЯМКИ
-  .strategy-toggles {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-bottom: 16px;
-
-    .toggle-card {
-      background: #2b3139;
-      padding: 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      border: 1px solid transparent;
-      input { display: none; }
-      &.active { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
-      .toggle-info { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-    }
-
-    .direction-toggles {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      .dir-btn {
-        padding: 10px; text-align: center; border-radius: 8px; font-size: 12px; cursor: pointer; border: 1px solid #474d57;
-        input { display: none; }
-        &.long.active { background: rgba(14, 203, 129, 0.1); border-color: #0ecb81; color: #0ecb81; }
-        &.short.active { background: rgba(246, 70, 93, 0.1); border-color: #f6465d; color: #f6465d; }
-      }
-    }
-  }
-
-  // НАЛАШТУВАННЯ СІТКИ ТЕЙКІВ (TP GRID)
-  .tp-grid-container {
-    margin-top: 15px;
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-
-    .tp-grid-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-
-      .grid-label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-        font-weight: bold;
-        color: #eaecef;
-        font-size: 12px;
-      }
-
-      .add-level-btn {
-        background: #0ecb81;
-        border: none;
-        color: #fff;
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-size: 10px;
-        cursor: pointer;
-        font-weight: bold;
-        &:hover { background: #0bad6e; }
-      }
-    }
-
-    .grid-table {
-      font-size: 10px;
-
-      .grid-table-head {
-        display: grid;
-        grid-template-columns: 2fr 2fr 1fr 0.5fr;
-        gap: 5px;
-        color: #848e9c;
-        margin-bottom: 5px;
-        padding: 0 5px;
-        font-weight: bold;
-      }
-
-      .grid-row {
-        display: grid;
-        grid-template-columns: 2fr 2fr 1fr 0.5fr;
-        gap: 5px;
-        align-items: center;
-        margin-bottom: 4px;
-        background: rgba(0, 0, 0, 0.2);
-        padding: 4px;
-        border-radius: 4px;
-
-        .grid-input {
-          background: transparent;
-          border: 1px solid #474d57;
-          color: #fff;
-          width: 100%;
-          padding: 2px 4px;
-          border-radius: 3px;
-          outline: none;
-          &:focus { border-color: #f3ba2f; }
-        }
-
-        .be-check {
-          cursor: pointer;
-          justify-self: center;
-        }
-
-        .remove-btn {
-          color: #f6465d;
-          cursor: pointer;
-          text-align: center;
-          font-weight: bold;
-          font-size: 14px;
-          &:hover { color: #ff6075; }
-        }
-      }
-    }
-
-    .volume-error {
-      color: #f6465d;
-      font-size: 9px;
-      margin-top: 8px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px;
-      background: rgba(246, 70, 93, 0.1);
-      border-radius: 4px;
-    }
-  }
-
-  .misc-settings {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    .simple-check { font-size: 12px; color: #848e9c; cursor: pointer; display: flex; align-items: center; gap: 8px; }
-  }
-
-  .apply-btn {
-    background: #f3ba2f;
-    color: #000;
-    border: none;
-    padding: 10px 24px;
-    border-radius: 8px;
-    font-weight: bold;
+  .settings-trigger-btn {
+    background: #2b3139;
+    color: #eaecef;
+    border: 1px solid #474d57;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
-    transition: transform 0.1s;
-    &:active { transform: scale(0.95); }
-    &:hover { background: #f0b90b; box-shadow: 0 0 15px rgba(243, 186, 47, 0.3); }
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    &:hover {
+      background: #323a45;
+      border-color: #f3ba2f;
+      color: #f3ba2f;
+    }
+
+    &:active {
+      transform: scale(0.96);
+    }
   }
 }

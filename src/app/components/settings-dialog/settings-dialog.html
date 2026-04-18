@@ -1,0 +1,172 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onCancel()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Scanner Settings</h3>
+        <button class="close-btn" (click)="onCancel()">×</button>
+      </div>
+
+      <div class="settings-main-grid">
+        <div class="settings-section">
+          <h3 class="section-title">🌐 Ринок & Час</h3>
+          <div class="input-block">
+            <label>Тип торгівлі</label>
+            <select [(ngModel)]="localSettings.marketType">
+              <option [value]="MarketType.FUTURES">Futures (USD-M)</option>
+              <option [value]="MarketType.SPOT">Spot Market</option>
+            </select>
+          </div>
+          <div class="tf-selection-label">Таймфрейми (max 3)</div>
+          <div class="tf-grid">
+            @for (tf of timeframes; track tf) {
+              <label class="tf-chip" [class.active]="isTfSelected(tf)">
+                <input type="checkbox" [checked]="isTfSelected(tf)" (change)="onTfChange(tf, $event)">
+                {{ tf }}
+              </label>
+            }
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3 class="section-title">📊 Технічні параметри</h3>
+
+          <div class="params-row">
+            <div class="input-block">
+              <label>Swing (Бари)</label>
+              <input type="number" [(ngModel)]="localSettings.swingPeriod" title="Глибина пошуку екстремумів">
+            </div>
+            <div class="input-block">
+              <label>Trailing (Бари)</label>
+              <input type="number" [(ngModel)]="localSettings.trailingBars">
+            </div>
+          </div>
+
+          <div class="params-row">
+            <div class="input-block">
+              <label>Об'єм Min (x)</label>
+              <input type="number" [(ngModel)]="localSettings.minVolMult" step="0.1">
+            </div>
+            <div class="input-block">
+              <label>Об'єм Max (x)</label>
+              <input type="number" [(ngModel)]="localSettings.maxVolMult" step="0.1">
+            </div>
+          </div>
+
+          <div class="params-row">
+            <div class="input-block">
+              <label>Swing Min (%)</label>
+              <input type="number" [(ngModel)]="localSettings.minSwing" step="0.1">
+            </div>
+            <div class="input-block">
+              <label>Swing Max (%)</label>
+              <input type="number" [(ngModel)]="localSettings.maxSwing" step="0.1">
+            </div>
+          </div>
+
+          <div class="params-row">
+            <div class="input-block">
+              <label>R/R Min</label>
+              <input type="number" [(ngModel)]="localSettings.minRR" step="0.1">
+            </div>
+            <div class="input-block">
+              <label>R/R Max</label>
+              <input type="number" [(ngModel)]="localSettings.maxRR" step="0.1">
+            </div>
+          </div>
+
+          <div class="params-row">
+            <div class="input-block">
+              <label>L Strength Min</label>
+              <input type="number" [(ngModel)]="localSettings.minLvlStrength" step="0.1">
+            </div>
+            <div class="input-block">
+              <label>Кластер (Max)</label>
+              <input type="number" [(ngModel)]="localSettings.maxClusterSize" step="1">
+            </div>
+          </div>
+
+          <div class="params-row">
+            <div class="input-block">
+              <label>Min profit %</label>
+              <input type="number" [(ngModel)]="localSettings.minProfitThreshold" step="0.1">
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3 class="section-title">⚙️ Стратегія & Візуал</h3>
+          <div class="strategy-toggles">
+            <label class="toggle-card" [class.active]="localSettings.useDivergence">
+              <input type="checkbox" [(ngModel)]="localSettings.useDivergence">
+              <div class="toggle-info">
+                <span class="icon">💎</span>
+                <span class="name">AO Divergence</span>
+              </div>
+            </label>
+
+            <div class="direction-toggles">
+              <label class="dir-btn long" [class.active]="localSettings.showLong">
+                <input type="checkbox" [(ngModel)]="localSettings.showLong"> 📈 LONG
+              </label>
+              <label class="dir-btn short" [class.active]="localSettings.showShort">
+                <input type="checkbox" [(ngModel)]="localSettings.showShort"> 📉 SHORT
+              </label>
+            </div>
+          </div>
+
+          <div class="misc-settings">
+            <label class="simple-check">
+              <input type="checkbox" [(ngModel)]="localSettings.soundEnabled"> 🔊 Звукові сповіщення
+            </label>
+            <label class="simple-check">
+              <input type="checkbox" [(ngModel)]="localSettings.holdStale"> 👻 Показувати "Привидів"
+            </label>
+          </div>
+
+          <div class="tp-grid-container">
+            <div class="tp-grid-header">
+              <label class="grid-label">
+                <input type="checkbox" [(ngModel)]="localSettings.useTPGrid"> 🎯 Take Profit Grid
+              </label>
+
+              @if (localSettings.useTPGrid && localSettings.tpGrid.length < 10) {
+                <button class="add-level-btn" (click)="addTpLevel()">+ Add</button>
+              }
+            </div>
+
+            @if (localSettings.useTPGrid) {
+              <div class="grid-table">
+                <div class="grid-table-head">
+                  <span>Move %</span>
+                  <span>Vol %</span>
+                  <span>BE</span>
+                  <span></span>
+                </div>
+
+                @for (level of localSettings.tpGrid; track $index) {
+                  <div class="grid-row">
+                    <input type="number" [(ngModel)]="level.movePercent" class="grid-input">
+                    <input type="number" [(ngModel)]="level.volumePercent" class="grid-input">
+                    <input type="checkbox" [(ngModel)]="level.triggerBE" (change)="onBeToggle($index)" class="be-check">
+                    <span class="remove-btn" (click)="removeTpLevel($index)">×</span>
+                  </div>
+                }
+              </div>
+
+              @if (isVolumeInvalid) {
+                <div class="volume-error">
+                  ⚠️ Total volume: {{ totalTpVolume | number:'1.0-1' }}% (must be 100%)
+                </div>
+              }
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="cancel-btn" (click)="onCancel()">Cancel</button>
+        <button class="save-btn" (click)="onSave()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+}

@@ -259,11 +259,31 @@ export class App implements OnInit, OnDestroy {
       }
       this.updateKlineHistory(key, kline);
       this.updateVolumeAverage(key, kline.volume!);
-      this.activeSignals.delete(key);
+      
+      // Forcefully delete all signals for that tf from this.activeSignals
+      // No signal (active or stale) should survive the end of a candle.
+      for (const [sKey, _] of this.activeSignals.entries()) {
+        if (sKey.endsWith(`_${tf}`)) {
+          this.activeSignals.delete(sKey);
+        }
+      }
+
       this.uiUpdate$.next();
     } else {
       this.processTick(kline, tf, key);
     }
+  }
+
+  private getTfMillis(tf: string): number {
+    const units: Record<string, number> = {
+      '1m': 60000,
+      '3m': 180000,
+      '5m': 300000,
+      '15m': 900000,
+      '30m': 1800000,
+      '1h': 3600000
+    };
+    return units[tf] || 60000;
   }
 
   private processTick(kline: any, tf: string, key: string) {
@@ -279,18 +299,39 @@ export class App implements OnInit, OnDestroy {
     const signal = Strategy.detectTradeSignal(kline, volMult, prevVolMult, ctx, history, tf, this.settings, this.symbolTickSizes, this.symbolQuotes);
 
     if (signal) {
-      const isNew = !this.activeSignals.has(key);
+      const existing = this.activeSignals.get(key);
+      const isNew = !existing;
+      
       // Розрахунок Volume ($) для поточного сигналу
       signal.volumeUsd = kline.volume * kline.close;
-      this.activeSignals.set(key, signal);
-      if (isNew && this.settings.soundEnabled) this.playAlertSound();
+      
+      if (existing) {
+        // Update data but reset stale status
+        Object.assign(existing, signal);
+        existing.isStale = false;
+        existing.expiryTime = undefined;
+      } else {
+        this.activeSignals.set(key, signal);
+        if (this.settings.soundEnabled) this.playAlertSound();
+      }
     } else {
-      this.activeSignals.delete(key);
+      if (this.settings.holdStale) {
+        const existing = this.activeSignals.get(key);
+        if (existing && !existing.isStale) {
+          existing.isStale = true;
+          existing.expiryTime = Date.now() + (this.getTfMillis(tf) * 0.25);
+        }
+      } else {
+        this.activeSignals.delete(key);
+      }
     }
     this.uiUpdate$.next();
   }
 
   private addSignalToHistory(kline: any, sig: TradeSignal, tf: string) {
+    // Only add non-stale signals to history
+    if (sig.isStale) return;
+
     this.lastSignalsHistory.unshift({
       id: Date.now() + Math.random(),
       time: new Date(kline.openTime || Date.now()).toLocaleTimeString(),
@@ -318,6 +359,14 @@ export class App implements OnInit, OnDestroy {
   }
 
   private performUIUpdate() {
+    // Cleanup stale signals
+    const now = Date.now();
+    for (const [key, sig] of this.activeSignals.entries()) {
+      if (sig.isStale && sig.expiryTime && now > sig.expiryTime) {
+        this.activeSignals.delete(key);
+      }
+    }
+
     this.signalsList = Array.from(this.activeSignals.values())
       .filter(s => (s.type === SignalSide.LONG && this.settings.showLong) || (s.type === SignalSide.SHORT && this.settings.showShort))
       .sort((a, b) => b.timestamp - a.timestamp);

@@ -1,6 +1,6 @@
 <div class="signal-card"
      [style.borderTopColor]="sig.type === SignalSide.LONG ? '#0ecb81' : '#f6465d'"
-     [style.opacity]="sig.isStale ? 0.5 : 1">
+     [class.stale-ghost]="sig.isStale">
 
   <div class="card-header">
     <div class="pair-info" style="display: flex; align-items: center; gap: 4px;">

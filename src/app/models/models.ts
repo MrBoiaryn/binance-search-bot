@@ -38,6 +38,7 @@ export interface TradeSignal {
   timestamp: number;
   rr: number;
   isStale?: boolean;
+  expiryTime?: number;
   quoteAsset: string;
   swingStrength: number;
   timeframe: string;

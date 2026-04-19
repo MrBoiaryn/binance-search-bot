@@ -386,6 +386,7 @@ export class App implements OnInit, OnDestroy {
       initialSlPercent: slPct,
       tpZoneMin: sig.tpZoneMin,
       tpZoneMax: sig.tpZoneMax,
+      score: calculateSignalScore(sig)
     });
     if (this.lastSignalsHistory.length > 3000) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);

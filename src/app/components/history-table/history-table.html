@@ -54,7 +54,7 @@
         <th>Stop Price</th>
         <th>Stop %</th>
         <th>Take Price (Grid)</th>
-        <th>Take min-max</th>
+        <th>Take ZONE</th>
         <th>Take %</th>
         <th>R/R</th>
         <th>Vol X</th>
@@ -62,6 +62,7 @@
         <th>level</th>
         <th>Volume ($)</th>
         <th class="text-center">Статус</th>
+        <th>Score</th>
       </tr>
       </thead>
       <tbody>
@@ -125,7 +126,7 @@
               }
             </td>
             <td class="tp-cell text-center">
-              <div>{{log.tpZoneMin}}-{{log.tpZoneMax}}</div>
+              <div>{{log.tpZoneMin}}<br>{{log.tpZoneMax}}</div>
             </td>
             <td class="tp-pct-cell" style="color: #0ecb81;">
               {{getPercent(log.price, log.tp) | number:'1.2-2'}}%
@@ -184,10 +185,13 @@
                 </span>
               }
             </td>
+            <td>
+              {{log.score | number}}
+            </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="17" style="text-align: center; padding: 40px; color: #848e9c;">
+            <td colspan="19" style="text-align: center; padding: 40px; color: #848e9c;">
               📭 Журнал порожній. Очікуємо на нові сигнали...
             </td>
           </tr>

@@ -86,6 +86,7 @@ export interface HistoricalLog {
   volumeUsd?: number;
   tpZoneMin?: number;
   tpZoneMax?: number;
+  score: number;
 }
 
 export interface ScannerSettings {

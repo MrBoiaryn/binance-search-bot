@@ -36,6 +36,7 @@ export class App implements OnInit, OnDestroy {
   // --- СХОВИЩА ДАНИХ ---
   activeSignals: Map<string, TradeSignal> = new Map();
   signalsList: TradeSignal[] = [];
+  ghostSignals: TradeSignal[] = [];
   lastSignalsHistory: HistoricalLog[] = [];
   activeHistoryFilter: PositionStatus | string = PositionStatus.ALL;
 
@@ -234,6 +235,7 @@ export class App implements OnInit, OnDestroy {
     this.socketSubscriptions.clear();
     this.activeSignals.clear();
     this.signalsList = [];
+    this.ghostSignals = [];
     this.klineHistory.clear();
     this.volumeAverages.clear();
   }
@@ -391,9 +393,17 @@ export class App implements OnInit, OnDestroy {
       }
     }
 
-    this.signalsList = Array.from(this.activeSignals.values())
-      .filter(s => (s.type === SignalSide.LONG && this.settings.showLong) || (s.type === SignalSide.SHORT && this.settings.showShort))
+    const allFiltered = Array.from(this.activeSignals.values())
+      .filter(s => (s.type === SignalSide.LONG && this.settings.showLong) || (s.type === SignalSide.SHORT && this.settings.showShort));
+
+    this.signalsList = allFiltered
+      .filter(s => !s.isStale)
       .sort((a, b) => calculateSignalScore(b) - calculateSignalScore(a));
+
+    this.ghostSignals = allFiltered
+      .filter(s => s.isStale)
+      .sort((a, b) => calculateSignalScore(b) - calculateSignalScore(a));
+
     this.cdr.detectChanges();
   }
 

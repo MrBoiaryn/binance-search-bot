@@ -29,6 +29,27 @@
     }
   </div>
 
+  @if (ghostSignals.length > 0) {
+    <div class="signals-header mt-8">
+      <h2 class="title-row">
+        <div class="status-badge !border-dashed !opacity-60">
+          <span class="dot !bg-gray-500 !shadow-none"></span>
+          👻 Ghost Signals: <span class="count">{{ ghostSignals.length }}</span>
+        </div>
+      </h2>
+    </div>
+
+    <div class="signals-grid opacity-60">
+      @for (sig of ghostSignals; track sig.symbol + '_' + sig.timeframe; let idx = $index) {
+        <app-signal-card
+          [sig]="sig"
+          [index]="idx"
+          [marketType]="settings.marketType">
+        </app-signal-card>
+      }
+    </div>
+  }
+
   <app-history-table
     [history]="displayHistory"
     [totalPnL]="displayPnL"

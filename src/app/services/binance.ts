@@ -11,8 +11,21 @@ export class BinanceSocketService {
   // Виносимо константи, щоб не було хардкоду в методах
   private readonly QUOTE_ASSET = 'USDT';
   private readonly IGNORED_COINS = [
+    // 💵 USD Стейблкоїни
     'USDC', 'FDUSD', 'TUSD', 'BUSD', 'USDP',
-    'EUR', 'AEUR', 'TRY', 'GBP', 'RUB', 'XAU'
+    'DAI', 'USDD', 'FRAX', 'PYUSD', 'GUSD', 'USDE',
+    'USD1',
+
+    // 💶 Інші стейблкоїни (Євро та локальні)
+    'AEUR', 'EURT', 'EURI', 'VAI', 'BIDR', 'IDRT',
+
+    // 🏦 Фіатні валюти (Державні гроші)
+    'EUR', 'TRY', 'GBP', 'RUB', 'UAH', 'BRL',
+    'ARS', 'PLN', 'RON', 'ZAR', 'AUD', 'CAD',
+    'JPY', 'CHF', 'NGN', 'MXN', 'COP',
+
+    // 🥇 Токенізовані метали (Комодітіз)
+    'XAU', 'PAXG', 'XAG'
   ];
 
   constructor(private http: HttpClient) {}

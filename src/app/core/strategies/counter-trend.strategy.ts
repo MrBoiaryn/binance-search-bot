@@ -1,6 +1,7 @@
 import { PatternContext, ScannerSettings, TradeSignal } from '../../models/models';
 import { LONG_DETECTORS, SHORT_DETECTORS } from './pattern-detectors';
-import { findTrueLevel, roundToTick } from '../math/indicators';
+import { findTrueLevel, roundToTick, checkTrendBias } from '../math/indicators';
+import { aggregateCandles, getAggregationRatio } from '../math/trading-math';
 import { LevelType, PatternType, SignalSide } from '../constants/trade-enums';
 
 export function detectTradeSignal(
@@ -16,23 +17,34 @@ export function detectTradeSignal(
 ): TradeSignal | null {
   if (settings.useDivergence && !ctx.hasDivergence) return null;
 
+  // HTF Trend Filter calculation
+  let htfTrend: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
+  if (settings.useTrendFilter) {
+    const ratio = getAggregationRatio(tf);
+    const htfHistory = aggregateCandles(history, ratio);
+    htfTrend = checkTrendBias(htfHistory, settings.trendEmaPeriod);
+  }
+
   // LONG
   if (settings.showLong) {
-    for (const detect of LONG_DETECTORS) {
-      const name = detect(ctx);
-      if (name) {
-        const effectiveVol = name === PatternType.INSIDE ? prevVolMult : volMult;
-        if (effectiveVol < settings.minVolMult || effectiveVol > settings.maxVolMult) continue;
+    // Apply HTF filter for LONG: only allow if BULLISH
+    if (!settings.useTrendFilter || htfTrend === 'BULLISH') {
+      for (const detect of LONG_DETECTORS) {
+        const name = detect(ctx);
+        if (name) {
+          const effectiveVol = name === PatternType.INSIDE ? prevVolMult : volMult;
+          if (effectiveVol < settings.minVolMult || effectiveVol > settings.maxVolMult) continue;
 
-        const isAtBottom = (name === PatternType.INSIDE) ? ctx.isMotherBarBottom : ctx.isLocalBottom;
+          const isAtBottom = (name === PatternType.INSIDE) ? ctx.isMotherBarBottom : ctx.isLocalBottom;
 
-        if (isAtBottom) {
-          const isAnomalousVol = effectiveVol >= (settings.minVolMult * 2.5);
-          const suffix = isAnomalousVol ? ' 🔥' : (ctx.hasDivergence ? ' 💎' : '');
-          const signal = createSignal(kline, SignalSide.LONG, `${name}${suffix}`, effectiveVol, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
+          if (isAtBottom) {
+            const isAnomalousVol = effectiveVol >= (settings.minVolMult * 2.5);
+            const suffix = isAnomalousVol ? ' 🔥' : (ctx.hasDivergence ? ' 💎' : '');
+            const signal = createSignal(kline, SignalSide.LONG, `${name}${suffix}`, effectiveVol, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
 
-          if (isValidSignal(signal, settings)) {
-            return signal;
+            if (isValidSignal(signal, settings)) {
+              return signal;
+            }
           }
         }
       }
@@ -41,21 +53,24 @@ export function detectTradeSignal(
 
   // SHORT
   if (settings.showShort) {
-    for (const detect of SHORT_DETECTORS) {
-      const name = detect(ctx);
-      if (name) {
-        const effectiveVol = name === PatternType.INSIDE ? prevVolMult : volMult;
-        if (effectiveVol < settings.minVolMult || effectiveVol > settings.maxVolMult) continue;
+    // Apply HTF filter for SHORT: only allow if BEARISH
+    if (!settings.useTrendFilter || htfTrend === 'BEARISH') {
+      for (const detect of SHORT_DETECTORS) {
+        const name = detect(ctx);
+        if (name) {
+          const effectiveVol = name === PatternType.INSIDE ? prevVolMult : volMult;
+          if (effectiveVol < settings.minVolMult || effectiveVol > settings.maxVolMult) continue;
 
-        const isAtPeak = (name === PatternType.INSIDE) ? ctx.isMotherBarPeak : ctx.isLocalPeak;
+          const isAtPeak = (name === PatternType.INSIDE) ? ctx.isMotherBarPeak : ctx.isLocalPeak;
 
-        if (isAtPeak) {
-          const isAnomalousVol = effectiveVol >= (settings.minVolMult * 2.5);
-          const suffix = isAnomalousVol ? ' 🔥' : (ctx.hasDivergence ? ' 💎' : '');
-          const signal = createSignal(kline, SignalSide.SHORT, `${name}${suffix}`, effectiveVol, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
+          if (isAtPeak) {
+            const isAnomalousVol = effectiveVol >= (settings.minVolMult * 2.5);
+            const suffix = isAnomalousVol ? ' 🔥' : (ctx.hasDivergence ? ' 💎' : '');
+            const signal = createSignal(kline, SignalSide.SHORT, `${name}${suffix}`, effectiveVol, tf, history, ctx.atr, ctx.hasDivergence, settings, symbolTickSizes, symbolQuotes);
 
-          if (isValidSignal(signal, settings)) {
-            return signal;
+            if (isValidSignal(signal, settings)) {
+              return signal;
+            }
           }
         }
       }

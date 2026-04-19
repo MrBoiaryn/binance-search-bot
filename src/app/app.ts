@@ -82,7 +82,9 @@ export class App implements OnInit, OnDestroy {
       { movePercent: 78.6, volumePercent: 10, triggerBE: false },
       { movePercent: 100.0, volumePercent: 5, triggerBE: false }
     ],
-    fractalWindow: 5
+    fractalWindow: 5,
+    useTrendFilter: false,
+    trendEmaPeriod: 200
   };
 
   constructor(
@@ -204,7 +206,8 @@ export class App implements OnInit, OnDestroy {
           low: parseFloat(k[3]),
           open: parseFloat(k[1]),
           volume: parseFloat(k[5]),
-          ao: 0
+          ao: 0,
+          openTime: parseInt(k[0])
         }));
 
         for (let i = 33; i < formatted.length; i++) {
@@ -427,7 +430,7 @@ export class App implements OnInit, OnDestroy {
   private updateKlineHistory(key: string, kline: any) {
     let h = this.klineHistory.get(key) || [];
     const newCandle = {
-      close: kline.close, high: kline.high, low: kline.low, open: kline.open, volume: kline.volume, ao: 0
+      close: kline.close, high: kline.high, low: kline.low, open: kline.open, volume: kline.volume, ao: 0, openTime: kline.openTime
     };
     h.push(newCandle);
     if (h.length > 600) h.shift();

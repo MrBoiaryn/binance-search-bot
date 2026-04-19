@@ -164,3 +164,25 @@ export function getTfMs(tf: string): number {
     default: return 60 * 1000;
   }
 }
+
+export function calculateEMA(data: number[], period: number): number[] {
+  const k = 2 / (period + 1);
+  let ema = [data[0]];
+  for (let i = 1; i < data.length; i++) {
+    ema.push(data[i] * k + ema[i - 1] * (1 - k));
+  }
+  return ema;
+}
+
+export function checkTrendBias(history: any[], period: number = 200): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
+  if (history.length < period + 1) return 'NEUTRAL';
+  const prices = history.map(h => h.close);
+  const ema = calculateEMA(prices, period);
+  const currEma = ema[ema.length - 1];
+  const prevEma = ema[ema.length - 2];
+  const currPrice = prices[prices.length - 1];
+
+  if (currPrice > currEma && currEma > prevEma) return 'BULLISH';
+  if (currPrice < currEma && currEma < prevEma) return 'BEARISH';
+  return 'NEUTRAL';
+}

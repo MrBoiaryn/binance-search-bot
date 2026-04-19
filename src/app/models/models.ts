@@ -118,6 +118,9 @@ export interface ScannerSettings {
   tpGrid: TPGridLevel[];
   tpGridSettings?: TPGridLevel[];
   fractalWindow: number;
+
+  useTrendFilter: boolean;
+  trendEmaPeriod: number;
 }
 
 export interface PatternContext {

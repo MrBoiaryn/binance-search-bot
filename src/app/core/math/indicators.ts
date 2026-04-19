@@ -28,30 +28,123 @@ export function roundToTick(price: number, tick: number): number {
   return parseFloat((Math.round(price / tick) * tick).toFixed(p));
 }
 
-export function findTrueLevel(history: any[], type: LevelType, currentPrice: number, tickSize: number) {
-  if (history.length === 0) return { price: currentPrice, strength: 0 };
-  const prices = history.map(k => type === LevelType.RESISTANCE ? k.high : k.low);
-  const minP = Math.min(...prices, currentPrice);
-  const maxP = Math.max(...prices, currentPrice);
-  const binSize = Math.max((maxP - minP) / 100, tickSize * 2);
-  const bins = new Array(Math.ceil((maxP - minP) / binSize) + 1).fill(0);
+/**
+ * Знаходить найближчий сильний рівень ліквідності для Тейк-Профіту.
+ * Враховує дзеркальні рівні, формує зони ліквідності та цілиться в найближчий край зони.
+ * * @param history Історія свічок
+ * @param type Напрямок пошуку (RESISTANCE для Лонга, SUPPORT для Шорта)
+ * @param currentPrice Поточна ціна (або ціна входу)
+ * @param tickSize Мінімальний крок ціни монети
+ * @param atr Average True Range (для динамічних відступів)
+ * @param window Розмір фракталу (скільки свічок зліва і справа перевіряти)
+ */
+export function findTrueLevel(
+  history: any[],
+  type: LevelType,
+  currentPrice: number,
+  tickSize: number,
+  atr: number,
+  window: number = 5
+) {
+  if (history.length < window * 3) return { price: currentPrice, strength: 0 };
 
-  history.forEach(k => {
-    const idx = Math.floor(((type === LevelType.RESISTANCE ? k.high : k.low) - minP) / binSize);
-    if (idx >= 0 && idx < bins.length) bins[idx] += k.volume;
+  // Універсальна мертва зона (1 ATR), щоб тейк не стояв упритул до входу
+  const minDistance = atr * 1.0;
+
+  // 1. Збираємо ВЗАГАЛІ ВСІ екстремуми (і Хаї, і Лоу)
+  const allPivots: { price: number, volume: number }[] = [];
+
+  for (let i = window; i < history.length - window; i++) {
+    const current = history[i];
+
+    // Перевірка на Swing High (Верхній фрактал / Горб)
+    let isSwingHigh = true;
+    for (let j = 1; j <= window; j++) {
+      if (history[i - j].high >= current.high || history[i + j].high >= current.high) {
+        isSwingHigh = false; break;
+      }
+    }
+    if (isSwingHigh) allPivots.push({ price: current.high, volume: current.volume });
+
+    // Перевірка на Swing Low (Нижній фрактал / Впадина)
+    let isSwingLow = true;
+    for (let j = 1; j <= window; j++) {
+      if (history[i - j].low <= current.low || history[i + j].low <= current.low) {
+        isSwingLow = false; break;
+      }
+    }
+    if (isSwingLow) allPivots.push({ price: current.low, volume: current.volume });
+  }
+
+  // 2. Фільтруємо рівні залежно від нашого напрямку (Опір чи Підтримка)
+  const validPivots = allPivots.filter(p => {
+    if (type === LevelType.RESISTANCE) {
+      // Для Лонга нас цікавить ВСЕ (і старі хаї, і старі лоу), що знаходиться ВИЩЕ нас
+      return p.price >= currentPrice + minDistance;
+    } else {
+      // Для Шорта нас цікавить ВСЕ, що знаходиться НИЖЧЕ нас
+      return p.price <= currentPrice - minDistance;
+    }
   });
 
-  let bestIdx = -1, maxVol = 0;
-  bins.forEach((v, i) => {
-    const p = minP + i * binSize;
-    if (type === LevelType.RESISTANCE && p <= currentPrice) return;
-    if (type === LevelType.SUPPORT && p >= currentPrice) return;
-    if (v > maxVol) { maxVol = v; bestIdx = i; }
+  // Якщо рівнів попереду немає, ставимо дефолтний безпечний тейк (2 ATR)
+  if (validPivots.length === 0) {
+    const fallbackPrice = type === LevelType.RESISTANCE
+      ? currentPrice + (atr * 2)
+      : currentPrice - (atr * 2);
+    return { price: roundToTick(fallbackPrice, tickSize), strength: 0.5 };
+  }
+
+  // 3. Кластеризація (Збираємо зони з чіткими межами)
+  const clusterZone = atr * 0.5; // Ширина коридору (пів середньої свічки)
+  const clusters: { minPrice: number, maxPrice: number, touches: number, totalVol: number }[] = [];
+
+  validPivots.forEach(p => {
+    // Шукаємо, чи ціна потрапляє в якийсь існуючий коридор
+    const existing = clusters.find(c =>
+      Math.abs(c.minPrice - p.price) <= clusterZone ||
+      Math.abs(c.maxPrice - p.price) <= clusterZone
+    );
+
+    if (existing) {
+      // Якщо так, розширюємо межі коридору, якщо шпилька вийшла за них
+      existing.minPrice = Math.min(existing.minPrice, p.price);
+      existing.maxPrice = Math.max(existing.maxPrice, p.price);
+      existing.touches += 1;
+      existing.totalVol += p.volume;
+    } else {
+      // Створюємо новий коридор (на старті мін і макс однакові)
+      clusters.push({
+        minPrice: p.price,
+        maxPrice: p.price,
+        touches: 1,
+        totalVol: p.volume
+      });
+    }
   });
 
-  if (bestIdx === -1) return { price: type === LevelType.RESISTANCE ? maxP : minP, strength: 0 };
-  const avgVol = bins.reduce((a, b) => a + b, 0) / bins.length;
-  return { price: minP + bestIdx * binSize, strength: maxVol / (avgVol || 1) };
+  // 4. Сортування кластерів (Спершу найсильніші)
+  clusters.sort((a, b) => {
+    // Якщо один рівень тестувався частіше - він сильніший
+    if (b.touches !== a.touches) return b.touches - a.touches;
+    // Якщо дотиків порівну - дивимось, де було більше об'єму
+    return b.totalVol - a.totalVol;
+  });
+
+  // Беремо найсильніший кластер
+  const bestLevel = clusters[0];
+
+  // 5. Визначаємо БЛИЖНІЙ край коридору для тейк-профіту (Proximal Edge)
+  const finalTakeProfitPrice = type === LevelType.RESISTANCE
+    ? bestLevel.minPrice // Для Лонга: низ коридору опору
+    : bestLevel.maxPrice; // Для Шорта: верх коридору підтримки
+
+  return {
+    price: roundToTick(finalTakeProfitPrice, tickSize),
+    strength: bestLevel.touches * 1.5, // Множник сили (1 дотик = 1.5, 2 дотики = 3.0)
+    zoneMin: roundToTick(bestLevel.minPrice, tickSize),
+    zoneMax: roundToTick(bestLevel.maxPrice, tickSize)
+  };
 }
 
 export function calculateVolMult(kline: any, tf: string, avgVol: number): number {

@@ -46,6 +46,8 @@ export interface TradeSignal {
   hasDivergence: boolean;
   volumeUsd?: number;
   tpGrid?: TPGridLevel[];
+  tpZoneMin?: number;
+  tpZoneMax?: number;
 }
 
 export interface HistoricalLog {
@@ -82,6 +84,8 @@ export interface HistoricalLog {
   useTPGrid?: boolean;
   marketType?: MarketType;
   volumeUsd?: number;
+  tpZoneMin?: number;
+  tpZoneMax?: number;
 }
 
 export interface ScannerSettings {
@@ -112,6 +116,7 @@ export interface ScannerSettings {
   useFiboGrid: boolean;
   tpGrid: TPGridLevel[];
   tpGridSettings?: TPGridLevel[];
+  fractalWindow: number;
 }
 
 export interface PatternContext {

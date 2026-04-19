@@ -14,7 +14,7 @@ export class BinanceSocketService {
     // 💵 USD Стейблкоїни
     'USDC', 'FDUSD', 'TUSD', 'BUSD', 'USDP',
     'DAI', 'USDD', 'FRAX', 'PYUSD', 'GUSD', 'USDE',
-    'USD1',
+    'USD1', 'U',
 
     // 💶 Інші стейблкоїни (Євро та локальні)
     'AEUR', 'EURT', 'EURI', 'VAI', 'BIDR', 'IDRT',

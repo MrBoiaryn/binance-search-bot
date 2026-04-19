@@ -54,6 +54,7 @@
         <th>Stop Price</th>
         <th>Stop %</th>
         <th>Take Price (Grid)</th>
+        <th>Take min-max</th>
         <th>Take %</th>
         <th>R/R</th>
         <th>Vol X</th>
@@ -122,6 +123,9 @@
               } @else {
                 <span class="current-price">{{log.tp | number:'1.2-8'}}</span>
               }
+            </td>
+            <td class="tp-cell text-center">
+              <div>{{log.tpZoneMin}}-{{log.tpZoneMax}}</div>
             </td>
             <td class="tp-pct-cell" style="color: #0ecb81;">
               {{getPercent(log.price, log.tp) | number:'1.2-2'}}%

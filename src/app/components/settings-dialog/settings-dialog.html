@@ -89,7 +89,13 @@
             <div class="input-block full-width">
               <label>🛡️ Max Stop Loss (%)</label>
               <input type="number" [(ngModel)]="localSettings.maxStopPercent" step="0.1" min="0.1" max="10.0">
-              <small class="hint-text">Сигнали зі стопом вище цього % будуть ігноруватися</small>
+            </div>
+          </div>
+
+          <div class="params-row">
+            <div class="input-block full-width">
+              <label>Розмір Фракталу (Зони Ліквідності)</label>
+              <input type="number" [(ngModel)]="settings.fractalWindow" step="1" min="2" max="20">
             </div>
           </div>
         </div>

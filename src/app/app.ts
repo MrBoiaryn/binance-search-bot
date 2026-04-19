@@ -81,7 +81,8 @@ export class App implements OnInit, OnDestroy {
       { movePercent: 61.8, volumePercent: 15, triggerBE: false },
       { movePercent: 78.6, volumePercent: 10, triggerBE: false },
       { movePercent: 100.0, volumePercent: 5, triggerBE: false }
-    ]
+    ],
+    fractalWindow: 5
   };
 
   constructor(
@@ -382,7 +383,9 @@ export class App implements OnInit, OnDestroy {
       useTPGrid: this.settings.useTPGrid,
       tpGrid: this.settings.useTPGrid ? JSON.parse(JSON.stringify(this.settings.tpGrid)) : undefined,
       volumeUsd: sig.volumeUsd,
-      initialSlPercent: slPct
+      initialSlPercent: slPct,
+      tpZoneMin: sig.tpZoneMin,
+      tpZoneMax: sig.tpZoneMax,
     });
     if (this.lastSignalsHistory.length > 3000) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);

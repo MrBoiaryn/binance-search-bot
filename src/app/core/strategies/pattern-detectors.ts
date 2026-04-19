@@ -8,8 +8,11 @@ import { PatternType } from '../constants/trade-enums';
 export type DetectorFn = (ctx: PatternContext) => PatternType | null;
 
 /**
- * --- ДОПОМІЖНІ МЕТРИКИ (Фундамент розрахунків) ---
+ * ============================================================================
+ * ДОПОМІЖНІ МЕТРИКИ (Фундамент розрахунків)
+ * ============================================================================
  */
+
 // Різниця між ціною відкриття та закриття (чисте "м'ясо" свічки)
 const getBody = (k: any) => Math.abs(k.close - k.open);
 
@@ -22,122 +25,169 @@ const getUpperShadow = (k: any) => k.high - Math.max(k.open, k.close);
 // Довжина "хвоста" знизу (відстань від мінімуму до тіла)
 const getLowerShadow = (k: any) => Math.min(k.open, k.close) - k.low;
 
-// Перевірка: чи свічка зростаюча (зелена)
+// Перевірки напрямку свічки
 const isBullish = (k: any) => k.close > k.open;
-
-// Перевірка: чи свічка падаюча (червона)
 const isBearish = (k: any) => k.close < k.open;
 
+
 /**
- * --- НЕЙТРАЛЬНІ ПАТЕРНИ (Ознака зупинки ринку) ---
+ * ============================================================================
+ * НЕЙТРАЛЬНІ ПАТЕРНИ (Ознаки зупинки, невизначеності або накопичення)
+ * ============================================================================
  */
 
-// DOJI: Свічка, де ціна майже не змінилася за період. Ринок "завис".
+/**
+ * DOJI (Доджі): Патерн абсолютної рівноваги.
+ * Формується, коли ціни відкриття та закриття практично однакові.
+ * Сигналізує про тимчасовий паритет між покупцями та продавцями (ринок "на роздоріжжі").
+ * Цей детектор шукає "Класичний Доджі" (хрестик), де верхня і нижня тіні приблизно рівні.
+ */
 export const dojiDetector: DetectorFn = ({ kline }) => {
   const range = getRange(kline);
-  if (range === 0) return null; // Захист від порожніх свічок
+  if (range === 0) return null; // Захист від відсутності торгів (нульової свічки)
 
   const body = getBody(kline);
   const upper = getUpperShadow(kline);
   const lower = getLowerShadow(kline);
 
-  // 1. Умова "Тіло-нитка": тіло займає менше 10% від всього руху свічки
+  // 1. Тіло має бути мікроскопічним (не більше 10% від усього діапазону свічки).
+  // Це головна ідентифікаційна умова будь-якого Доджі.
   const isSmallBody = body <= range * 0.1;
-  // 2. Умова "Центрування": верхня і нижня тіні майже однакові (різниця до 30% від діапазону)
-  // Тобто тіло знаходиться приблизно посередині свічки.
+
+  // 2. Симетрія тіней (Центрування).
+  // Різниця між верхньою та нижньою тінями не повинна перевищувати 30% від діапазону.
+  // Це надійно відсікає "Драконів" та "Могильні камені", де домінує лише одна тінь.
   const isCentral = Math.abs(upper - lower) <= (range * 0.3);
 
   return (isSmallBody && isCentral) ? PatternType.DOJI : null;
 };
 
-// INSIDE BAR: Свічка, яка повністю "захована" всередині попередньої.
-// Означає стискання пружини перед пробоєм.
+/**
+ * INSIDE BAR (Внутрішній бар): Патерн стиснення волатильності (Консолідація).
+ * Поточна свічка повністю знаходиться в межах діапазону (High-Low) попередньої "материнської" свічки.
+ * Візуально нагадує стиснуту пружину: ринок накопичує енергію перед сильним імпульсом
+ * або пробоєм рівня.
+ */
 export const insideBarDetector: DetectorFn = ({ kline, lastCandle }) => {
-  // Поточний High нижче попереднього І поточний Low вище попереднього
-  return (kline.high < lastCandle.high && kline.low > lastCandle.low) ? PatternType.INSIDE : null;
+  // 1. Максимум поточної свічки не зміг перебити максимум попередньої
+  const isLowerHigh = kline.high < lastCandle.high;
+
+  // 2. Мінімум поточної свічки не зміг опуститися нижче мінімуму попередньої
+  const isHigherLow = kline.low > lastCandle.low;
+
+  // Якщо обидві умови виконані — свічка повністю "захована"
+  return (isLowerHigh && isHigherLow) ? PatternType.INSIDE : null;
 };
 
+
+
+
 /**
- * --- LONG PATTERNS (Сигнали на покупку) ---
+ * ============================================================================
+ * LONG PATTERNS (Сигнали на покупку)
+ * ============================================================================
  */
 
-// HAMMER (Молот): Ціна сильно впала, але покупці її викупили назад до закриття.
+/**
+ * HAMMER (Молот): Класичний розворотний патерн.
+ * Ознака того, що ціна значно впала, але покупці відкупили її назад до закриття.
+ */
 export const hammerDetector: DetectorFn = ({ kline }) => {
   const range = getRange(kline);
-  if (range === 0) return null;
+  if (range === 0) return null; // Захист від порожніх (нульових) свічок
 
   const body = getBody(kline);
-  const upperShadow = getUpperShadow(kline);
   const lowerShadow = getLowerShadow(kline);
+  const upperShadow = getUpperShadow(kline);
 
-  // 1. Тіло не повинно бути занадто великим (макс 30% від всієї свічки)
+  // 1. "Свічка має довгу нижню тінь, яка у 2-3 рази більша за тіло"
+  // Використовуємо коефіцієнт 2.0 як мінімальний поріг для надійності.
+  const isLongTail = lowerShadow >= body * 2.0;
+
+  // 2. "Верхня тінь відсутня або дуже коротка"
+  // Дозволяємо верхній тіні займати не більше 10% від усього розміру свічки.
+  const isShortUpperShadow = upperShadow <= range * 0.1;
+
+  // 3. "Маленьке тіло свічки розташоване у верхній частині діапазону"
+  // Тіло не повинно бути занадто великим (макс 30% від всієї свічки),
+  // інакше це вже не молот, а просто велика свічка з хвостом.
   const isSmallBody = body <= range * 0.3;
 
-  // 2. ВЕРХНЯ ТІНЬ має бути символічною (макс 10% від всієї свічки)
-  // Це і гарантує, що тіло "притиснуте" до самого верху
-  const isAtTheVeryTop = upperShadow <= range * 0.1;
+  // Колір може бути будь-яким (зеленим або червоним), тому ми не використовуємо
+  // isBullish() чи isBearish() у фінальній перевірці.
 
-  // 3. НИЖНІЙ ХВІСТ має бути домінантним
-  // Якщо тіло 30%, а верх 10%, то на хвіст лишається 60%. Це ідеальний Молот.
-  const isLongTail = lowerShadow >= range * 0.6;
-
-  return (isSmallBody && isAtTheVeryTop && isLongTail) ? PatternType.HAMMER : null;
-};
-
-// PIN BAR LONG: Екстремальна версія Молота.
-export const pinBarLONG: DetectorFn = ({ kline }) => {
-  const range = getRange(kline);
-  if (range === 0) return null;
-  // Нижній хвіст займає мінімум 66% всієї свічки, тіло — мізерне (до 15%)
-  return (getLowerShadow(kline) >= range * 0.66 && getBody(kline) <= range * 0.15) ? PatternType.PIN_BAR : null;
-};
-
-// BULLISH ENGULFING (Бичаче поглинання): Нова зелена свічка повністю "з'їдає" попередню червону.
-export const bullishEngulfing: DetectorFn = ({ kline, lastCandle }) => {
-  // Поточна — зелена, попередня — червона
-  // Тіло поточної закриває (перекриває) відкриття та закриття попередньої
-  return (isBullish(kline) && isBearish(lastCandle) &&
-    kline.close >= lastCandle.open && kline.open <= lastCandle.close) ? PatternType.ENGULFING : null;
-};
-
-// RAILS LONG (Рейки): Дві великі свічки однакового розміру в різні боки.
-export const railsLONG: DetectorFn = ({ kline, lastCandle, avgBody }) => {
-  const b1 = getBody(lastCandle);
-  const b2 = getBody(kline);
-  const r1 = getRange(lastCandle);
-  const r2 = getRange(kline);
-
-  if (r1 === 0 || r2 === 0) return null;
-
-  // 1. Обидві свічки великі (в 1.5 раза більші за середнє тіло на ринку)
-  const areLarge = b1 > avgBody * 1.5 && b2 > avgBody * 1.5;
-  // 2. Тіла майже ідентичні за розміром (різниця менше 10%)
-  const areEqual = Math.abs(b1 - b2) < b1 * 0.1;
-  // 3. "Чистота": свічки майже без тіней (тіло займає 85%+ всього діапазону)
-  const isClean = (b1 >= r1 * 0.85) && (b2 >= r2 * 0.85);
-
-  return (isBullish(kline) && isBearish(lastCandle) && areLarge && areEqual && isClean) ? PatternType.RAILS : null;
-};
-
-// ABSORPTION LONG (Супер-поглинання): Ціна закрилася вище максимуму попередньої свічки.
-export const absorptionLONG: DetectorFn = ({ kline, lastCandle }) => {
-  // Закриття вище хаю попередньої ТА відкриття нижче лоу попередньої (рідкісний імпульс)
-  return (isBullish(kline) && kline.close > lastCandle.high && kline.open < lastCandle.low) ? PatternType.ABSORPTION : null;
-};
-
-// BULLISH MOMENTUM: Велика впевнена зелена свічка без тіней.
-export const bullishMomentum: DetectorFn = ({ kline, avgBody }) => {
-  const b = getBody(kline);
-  // 1. Тіло вдвічі більше за середнє
-  // 2. Майже немає тіней (тіло займає 90% діапазону)
-  return (isBullish(kline) && b > avgBody * 2.0 && b >= getRange(kline) * 0.9) ? PatternType.MOMENTUM : null;
+  return (isLongTail && isShortUpperShadow && isSmallBody) ? PatternType.HAMMER : null;
 };
 
 /**
- * REJECTION LONG: Сильне відторгнення ціни знизу.
- * Характеризується екстремально довгим хвостом, який у 3+ рази більший за тіло.
+ * INVERTED HAMMER (Перевернутий молот): Потенційний бичачий розворот.
+ * З'являється після низхідного тренду. Означає, що покупці починають перехоплювати ініціативу.
  */
-export const rejectionLONG: DetectorFn = ({ kline }) => {
+export const invertedHammerDetector: DetectorFn = ({ kline }) => {
+  const range = getRange(kline);
+  if (range === 0) return null;
+
+  const body = getBody(kline);
+  const upperShadow = getUpperShadow(kline);
+  const lowerShadow = getLowerShadow(kline);
+
+  // 1. "Довга верхня тінь, яка в 2-3 рази перевищує розмір тіла"
+  const isLongUpperShadow = upperShadow >= body * 2.0;
+
+  // 2. "Нижня тінь або відсутня, або дуже коротка"
+  const isShortLowerShadow = lowerShadow <= range * 0.1;
+
+  // 3. "Тіло свічки є відносно малим і розташоване в нижній частині"
+  const isSmallBody = body <= range * 0.3;
+
+  // Як і в описі, колір може бути будь-яким, тому не обмежуємо isBullish чи isBearish.
+
+  return (isLongUpperShadow && isShortLowerShadow && isSmallBody) ? PatternType.INVERTED_HAMMER : null;
+};
+
+/**
+ * POWER BAR LONG (Силова свічка / Бичачий Марубозу): Патерн тотальної домінації покупців.
+ * Свічка відкривається майже на самому мінімумі, стрімко летить вгору і закривається
+ * на абсолютному максимумі. Відсутність довгої верхньої тіні означає, що покупці
+ * не фіксували прибуток і готові тиснути ціну далі.
+ * (Захист від флету забезпечується глобальними фільтрами Volume Min та Swing).
+ */
+export const powerBarLONG: DetectorFn = ({ kline }) => {
+  const range = getRange(kline);
+  if (range === 0) return null; // Захист від відсутності торгів (нульової свічки)
+
+  const body = getBody(kline);
+  const upper = getUpperShadow(kline);
+  const lower = getLowerShadow(kline);
+
+  // 1. Тотальне домінування: тіло свічки має займати щонайменше 75% від усього руху.
+  // Це відсікає будь-які ознаки невпевненості чи боротьби.
+  const isSolidBody = body >= range * 0.75;
+
+  // 2. Закриття "під стелю": верхня тінь практично відсутня (макс 5%).
+  // Це ключова ознака того, що продавці навіть не спробували опустити ціну перед закриттям.
+  const isCleanTop = upper <= range * 0.05;
+
+  // 3. Допускається невеликий "заступ" на старті: нижня тінь до 20%.
+  // Часто на відкритті хвилини ціна робить мікро-відкат вниз перед тим, як вистрілити вгору.
+  const hasSmallBase = lower <= range * 0.2;
+
+  return (isBullish(kline) && isSolidBody && isCleanTop && hasSmallBase) ? PatternType.MOMENTUM : null;
+};
+
+
+/**
+ * ============================================================================
+ * SHORT PATTERNS (Сигнали на продаж)
+ * ============================================================================
+ */
+
+/**
+ * HANGING MAN (Повішений): Ведмежий розворотний патерн.
+ * З'являється на вершині висхідного тренду або біля сильного рівня опору.
+ * Візуально ідентичний Молоту (довгий нижній хвіст, мале тіло зверху).
+ */
+export const hangingManDetector: DetectorFn = ({ kline }) => {
   const range = getRange(kline);
   if (range === 0) return null;
 
@@ -145,27 +195,27 @@ export const rejectionLONG: DetectorFn = ({ kline }) => {
   const lowerShadow = getLowerShadow(kline);
   const upperShadow = getUpperShadow(kline);
 
-  // 1. Хвіст має бути домінуючим (мінімум 70% всієї свічки)
-  const isExtremeTail = lowerShadow >= range * 0.7;
+  // 1. "Довга нижня тінь, яка в 2-3 рази перевищує розмір тіла"
+  const isLongTail = lowerShadow >= body * 2.0;
 
-  // 2. Хвіст має бути мінімум у 3 рази більшим за тіло (головна відмінність від звичайного молота)
-  const tailVsBody = lowerShadow >= body * 3;
+  // 2. "Верхня тінь або відсутня, або дуже коротка"
+  const isShortUpperShadow = upperShadow <= range * 0.1;
 
-  // 3. Тіло знаходиться у верхній частині свічки
-  // (ми дозволяємо невелику верхню тінь, але вона має бути значно меншою за нижню)
-  const isAtTop = upperShadow < lowerShadow * 0.2;
+  // 3. "Маленьке тіло свічки знаходиться у верхній частині"
+  const isSmallBody = body <= range * 0.3;
 
-  // 4. Для Лонгу ідеально, якщо свічка закрилася вище, ніж відкрилася (зелена)
-  // хоча для Rejection колір менш важливий, ніж хвіст.
-  return (isExtremeTail && tailVsBody && isAtTop) ? PatternType.PIN_BAR : null;
+  // У твоєму описі: "Червоне тіло підсилює сигнал, але не є обов'язковим".
+  // Ми можемо залишити його гнучким, або зробити жорстким (isBearish), якщо хочемо менше ризику.
+  // Залишаємо гнучким, бо рівень Опору (L Strength) відфільтрує зайве.
+
+  return (isLongTail && isShortUpperShadow && isSmallBody) ? PatternType.HANGING_MAN : null;
 };
 
 /**
- * --- SHORT PATTERNS (Сигнали на продаж) ---
- * Логіка дзеркальна до LONG патернів.
+ * SHOOTING STAR (Падаюча зірка): Ведмежий розворотний патерн.
+ * З'являється на вершині висхідного тренду. Показує, що покупці спробували прорватися вище,
+ * але продавці перехопили ініціативу і жорстко опустили ціну.
  */
-
-// SHOOTING STAR (Падаюча зоря): Аналог Молота, але зверху.
 export const shootingStarDetector: DetectorFn = ({ kline }) => {
   const range = getRange(kline);
   if (range === 0) return null;
@@ -174,25 +224,62 @@ export const shootingStarDetector: DetectorFn = ({ kline }) => {
   const upperShadow = getUpperShadow(kline);
   const lowerShadow = getLowerShadow(kline);
 
-  const isSmallBody = body <= range * 0.3;
-  const isAtTheVeryBottom = lowerShadow <= range * 0.1; // Хвіст знизу мінімальний
-  const isLongNose = upperShadow >= range * 0.6;      // Ніс зверху величезний
+  // 1. "Довга верхня тінь, яка у 2-3 рази більша за тіло свічки"
+  const isLongUpperShadow = upperShadow >= body * 2.0;
 
-  return (isSmallBody && isAtTheVeryBottom && isLongNose) ? PatternType.STAR : null;
+  // 2. "Нижня тінь або відсутня, або дуже коротка"
+  const isShortLowerShadow = lowerShadow <= range * 0.1;
+
+  // 3. "Тіло свічки розташоване в нижній частині діапазону (мале тіло)"
+  const isSmallBody = body <= range * 0.3;
+
+  // Як зазначено в описі, червоне тіло підсилює сигнал, але форма сама по собі
+  // вже є розворотною. Рівень Опору (L Strength) відфільтрує хибні входи.
+
+  return (isLongUpperShadow && isShortLowerShadow && isSmallBody) ? PatternType.STAR : null;
 };
 
-export const pinBarSHORT: DetectorFn = ({ kline }) => {
+/**
+ * POWER BAR SHORT (Силова свічка / Ведмежий Марубозу): Патерн тотальної домінації продавців.
+ * Дзеркальне відображення бичачого Power Bar. Свічка відкривається на максимумі,
+ * продавці агресивно давлять ціну вниз і закривають її на самому "дні" без відкату.
+ */
+export const powerBarSHORT: DetectorFn = ({ kline }) => {
   const range = getRange(kline);
   if (range === 0) return null;
-  return (getUpperShadow(kline) >= range * 0.66 && getBody(kline) <= range * 0.15) ? PatternType.PIN_BAR : null;
+
+  const body = getBody(kline);
+  const upper = getUpperShadow(kline);
+  const lower = getLowerShadow(kline);
+
+  // 1. Масивне тіло: продавці контролювали понад 75% всього руху свічки.
+  const isSolidBody = body >= range * 0.75;
+
+  // 2. Закриття "в підлогу": нижня тінь практично відсутня (макс 5%).
+  // Покупців на дні свічки просто не було, падіння зупинилося лише через закриття таймфрейму.
+  const isCleanBottom = lower <= range * 0.05;
+
+  // 3. Невеликий хвіст зверху (до 20%): допускається мікро-спроба росту на самому відкритті.
+  const hasSmallHead = upper <= range * 0.2;
+
+  return (isBearish(kline) && isSolidBody && isCleanBottom && hasSmallHead) ? PatternType.MOMENTUM : null;
 };
 
-export const bearishEngulfing: DetectorFn = ({ kline, lastCandle }) => {
-  return (isBearish(kline) && isBullish(lastCandle) &&
-    kline.close <= lastCandle.open && kline.open >= lastCandle.close) ? PatternType.ENGULFING : null;
-};
+/**
+ * ============================================================================
+ * ДВОСВІЧКОВІ ПАТЕРНИ РОЗВОРОТУ (LONG)
+ * ============================================================================
+ */
 
-export const railsSHORT: DetectorFn = ({ kline, lastCandle, avgBody }) => {
+/**
+ * RAILS LONG (Рейки): Патерн миттєвого та жорсткого розвороту.
+ * Складається з двох великих імпульсних свічок різного кольору, які стоять поруч і
+ * мають майже ідентичний розмір. Візуально нагадують залізничні колії.
+ * Психологія: Продавці зробили сильний ривок вниз, але наступної ж хвилини покупці
+ * відповіли абсолютно симетричним ривком вгору. Це свідчить про наявність сильного
+ * лімітного гравця, який зупинив падіння як бетонна стіна.
+ */
+export const railsLONG: DetectorFn = ({ kline, lastCandle, avgBody }) => {
   const b1 = getBody(lastCandle);
   const b2 = getBody(kline);
   const r1 = getRange(lastCandle);
@@ -200,61 +287,130 @@ export const railsSHORT: DetectorFn = ({ kline, lastCandle, avgBody }) => {
 
   if (r1 === 0 || r2 === 0) return null;
 
+  // 1. Обидві свічки мають бути великими (на 50% більші за середнє тіло на ринку)
+  const areLarge = b1 > avgBody * 1.5 && b2 > avgBody * 1.5;
+
+  // 2. Симетрія: тіла майже ідентичні за розміром (різниця менше 10%)
+  const areEqual = Math.abs(b1 - b2) < b1 * 0.1;
+
+  // 3. "Чистота" рейок: свічки майже не мають тіней (тіло займає 85%+ діапазону)
+  const isClean = (b1 >= r1 * 0.85) && (b2 >= r2 * 0.85);
+
+  return (isBullish(kline) && isBearish(lastCandle) && areLarge && areEqual && isClean)
+    ? PatternType.RAILS : null;
+};
+
+/**
+ * ABSORPTION LONG (Екстремальне поглинання / Поглинання з пробоєм).
+ * Найсильніший вид поглинання. Поточна зелена свічка з'їдає не просто тіло,
+ * а ВЕСЬ діапазон попередньої червоної свічки разом з її тінями.
+ * Психологія: Покупці не лише відкупили все падіння, але й оновили локальний
+ * максимум попередньої хвилини, повністю знищивши зусилля продавців.
+ */
+export const absorptionLONG: DetectorFn = ({ kline, lastCandle }) => {
+  // Закриття вище хаю попередньої ТА відкриття нижче (або на рівні) лоу попередньої
+  return (isBullish(kline) && kline.close > lastCandle.high && kline.open < lastCandle.low)
+    ? PatternType.ABSORPTION : null;
+};
+
+/**
+ * BULLISH ENGULFING (Класичне бичаче поглинання).
+ * Стандартний і найпоширеніший розворотний патерн з двох свічок.
+ * Психологія: Тіло нової зеленої свічки повністю перекриває тіло попередньої
+ * червоної. Покупці змогли закрити ціну вище того рівня, з якого продавці
+ * почали своє падіння в попередньому періоді.
+ */
+export const bullishEngulfing: DetectorFn = ({ kline, lastCandle }) => {
+  return (isBullish(kline) && isBearish(lastCandle) &&
+    kline.close >= lastCandle.open && kline.open <= lastCandle.close)
+    ? PatternType.ENGULFING : null;
+};
+
+
+/**
+ * ============================================================================
+ * ДВОСВІЧКОВІ ПАТЕРНИ РОЗВОРОТУ (SHORT)
+ * ============================================================================
+ */
+
+/**
+ * RAILS SHORT (Рейки вниз).
+ * Дзеркально до лонгових рейок. Покупці зробили імпульс вгору, але відразу
+ * отримали "по голові" такою ж великою червоною свічкою.
+ */
+export const railsSHORT: DetectorFn = ({ kline, lastCandle, avgBody }) => {
+  const b1 = getBody(lastCandle), b2 = getBody(kline);
+  const r1 = getRange(lastCandle), r2 = getRange(kline);
+  if (r1 === 0 || r2 === 0) return null;
+
   const areLarge = b1 > avgBody * 1.5 && b2 > avgBody * 1.5;
   const areEqual = Math.abs(b1 - b2) < b1 * 0.1;
   const isClean = (b1 >= r1 * 0.85) && (b2 >= r2 * 0.85);
 
-  return (isBearish(kline) && isBullish(lastCandle) && areLarge && areEqual && isClean) ? PatternType.RAILS : null;
-};
-
-export const absorptionSHORT: DetectorFn = ({ kline, lastCandle }) => {
-  return (isBearish(kline) && kline.close < lastCandle.low && kline.open > lastCandle.high) ? PatternType.ABSORPTION : null;
-};
-
-export const bearishMomentum: DetectorFn = ({ kline, avgBody }) => {
-  const b = getBody(kline);
-  return (isBearish(kline) && b > avgBody * 2.0 && b >= getRange(kline) * 0.9) ? PatternType.MOMENTUM : null;
-};
-
-export const rejectionSHORT: DetectorFn = ({ kline }) => {
-  const range = getRange(kline);
-  if (range === 0) return null;
-
-  const body = getBody(kline);
-  const upperShadow = getUpperShadow(kline);
-  const lowerShadow = getLowerShadow(kline);
-
-  const isExtremeTail = upperShadow >= range * 0.7;
-  const tailVsBody = upperShadow >= body * 3;
-  const isAtBottom = lowerShadow < upperShadow * 0.2;
-
-  return (isExtremeTail && tailVsBody && isAtBottom) ? PatternType.PIN_BAR : null;
+  return (isBearish(kline) && isBullish(lastCandle) && areLarge && areEqual && isClean)
+    ? PatternType.RAILS : null;
 };
 
 /**
- * --- РЕЄСТРИ ---
+ * ABSORPTION SHORT (Екстремальне поглинання вниз).
+ * Червона свічка повністю перекриває весь діапазон (з тінями) попередньої зеленої.
+ * Ціна закривається нижче мінімуму попередньої свічки, пробиваючи локальну підтримку.
+ */
+export const absorptionSHORT: DetectorFn = ({ kline, lastCandle }) => {
+  return (isBearish(kline) && kline.close < lastCandle.low && kline.open > lastCandle.high)
+    ? PatternType.ABSORPTION : null;
+};
+
+/**
+ * BEARISH ENGULFING (Класичне ведмеже поглинання).
+ * Тіло червоної свічки повністю "з'їдає" тіло попередньої зеленої.
+ * Продавці перехопили ініціативу.
+ */
+export const bearishEngulfing: DetectorFn = ({ kline, lastCandle }) => {
+  return (isBearish(kline) && isBullish(lastCandle) &&
+    kline.close <= lastCandle.open && kline.open >= lastCandle.close)
+    ? PatternType.ENGULFING : null;
+};
+
+
+/**
+ * ============================================================================
+ * РЕЄСТРИ ДЕТЕКТОРІВ (Порядок має значення: від складного до простого)
+ * ============================================================================
  */
 
 export const LONG_DETECTORS = [
+  // 1. ДВОСВІЧКОВІ ПАТЕРНИ (Найбільше контексту, найвищий пріоритет)
+  railsLONG,        // Сувора симетрія та чистота
+  absorptionLONG,   // Перекриття всього діапазону (High-Low)
+  bullishEngulfing, // Перекриття тільки тіла (Open-Close)
+
+  // 2. ОДНОСВІЧКОВІ ПАТЕРНИ З ТІНЯМИ (Екстремальні розвороти)
   hammerDetector,
-  pinBarLONG,
+  invertedHammerDetector,
+
+  // 3. ОДНОСВІЧКОВІ ІМПУЛЬСИ (Силові пробої)
+  powerBarLONG,     // Якщо це не поглинання і не молот, але свічка сильна
+
+  // 4. ПАТЕРНИ ЗУПИНКИ ТА КОНСОЛІДАЦІЇ (Нейтральні)
   dojiDetector,
-  bullishEngulfing,
-  railsLONG,
-  absorptionLONG,
-  bullishMomentum,
-  insideBarDetector,
-  rejectionLONG
+  insideBarDetector
 ];
 
 export const SHORT_DETECTORS = [
-  shootingStarDetector,
-  pinBarSHORT,
-  dojiDetector,
-  bearishEngulfing,
+  // 1. ДВОСВІЧКОВІ ПАТЕРНИ (Найбільше контексту, найвищий пріоритет)
   railsSHORT,
   absorptionSHORT,
-  bearishMomentum,
-  insideBarDetector,
-  rejectionSHORT
+  bearishEngulfing,
+
+  // 2. ОДНОСВІЧКОВІ ПАТЕРНИ З ТІНЯМИ (Екстремальні розвороти)
+  hangingManDetector,
+  shootingStarDetector,
+
+  // 3. ОДНОСВІЧКОВІ ІМПУЛЬСИ (Силові пробої)
+  powerBarSHORT,
+
+  // 4. ПАТЕРНИ ЗУПИНКИ ТА КОНСОЛІДАЦІЇ (Нейтральні)
+  dojiDetector,
+  insideBarDetector
 ];

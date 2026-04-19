@@ -160,6 +160,7 @@ export function calculateSL(kline: any, history: any[], type: SignalSide, tick: 
   const slOffset = atr * 0.15;
   const isInside = pattern.includes(PatternType.INSIDE);
 
+  // 1. Для Інсайд-бару стоп ховаємо за материнську свічку
   if (isInside) {
     const motherBar = history[history.length - 1];
     return type === SignalSide.LONG
@@ -167,11 +168,21 @@ export function calculateSL(kline: any, history: any[], type: SignalSide, tick: 
       : roundToTick(motherBar.high + slOffset, tick);
   }
 
-  if (pattern.includes(PatternType.PIN_BAR) || pattern.includes(PatternType.HAMMER) || pattern.includes(PatternType.STAR)) {
+  // 2. Для всіх екстремальних свічкових розворотів ставимо короткий стоп за поточну свічку
+  if (
+    pattern.includes(PatternType.HAMMER) ||
+    pattern.includes(PatternType.INVERTED_HAMMER) ||
+    pattern.includes(PatternType.STAR) ||
+    pattern.includes(PatternType.HANGING_MAN) ||
+    pattern.includes(PatternType.DOJI)
+  ) {
     return type === SignalSide.LONG
       ? roundToTick(kline.low - slOffset, tick)
       : roundToTick(kline.high + slOffset, tick);
   }
+
+  // 3. Дефолтний стоп (для Engulfing, Rails, Absorption, Momentum)
+  // Ховаємо за локальний екстремум останніх 3-х свічок
   const candles = history.slice(-3);
   return type === SignalSide.LONG
     ? roundToTick(Math.min(...candles.map(k => k.low), kline.low) - slOffset, tick)

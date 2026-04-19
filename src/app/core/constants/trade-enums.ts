@@ -27,12 +27,13 @@ export enum PatternType {
   DOJI = 'Doji',
   INSIDE = 'Inside',
   HAMMER = 'Hammer',
-  PIN_BAR = 'PinBar',
   ENGULFING = 'Engulfing',
   RAILS = 'Rails',
   ABSORPTION = 'Absorption',
   MOMENTUM = 'Momentum',
-  STAR = 'Star'
+  STAR = 'Star',
+  HANGING_MAN = 'HangingMan',
+  INVERTED_HAMMER = 'InvertedHammer'
 }
 
 export enum TimeframeUnit {

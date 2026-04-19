@@ -22,6 +22,9 @@ import { HistoryTable } from './components/history-table/history-table';
 import { SettingsDialog } from './components/settings-dialog/settings-dialog';
 import { HelpDialogComponent } from './components/help-dialog/help-dialog';
 
+// Utils
+import { calculateSignalScore } from './utils/scoring';
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -390,7 +393,7 @@ export class App implements OnInit, OnDestroy {
 
     this.signalsList = Array.from(this.activeSignals.values())
       .filter(s => (s.type === SignalSide.LONG && this.settings.showLong) || (s.type === SignalSide.SHORT && this.settings.showShort))
-      .sort((a, b) => b.timestamp - a.timestamp);
+      .sort((a, b) => calculateSignalScore(b) - calculateSignalScore(a));
     this.cdr.detectChanges();
   }
 

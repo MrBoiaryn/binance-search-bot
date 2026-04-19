@@ -15,9 +15,10 @@
   </div>
 
   <div class="signals-grid">
-    @for (sig of signalsList; track sig.symbol + '_' + sig.timeframe) {
+    @for (sig of signalsList; track sig.symbol + '_' + sig.timeframe; let idx = $index) {
       <app-signal-card
         [sig]="sig"
+        [index]="idx"
         [marketType]="settings.marketType">
       </app-signal-card>
     } @empty {

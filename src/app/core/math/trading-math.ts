@@ -37,11 +37,12 @@ export function roundToTickSize(price: number, tickSize: number): number {
 
 export function getAggregationRatio(tf: string): number {
   switch (tf) {
-    case '1m': return 5;
-    case '5m': return 6;
-    case '15m': return 4;
-    case '1h': return 4;
-    default: return 1;
+    case '1m':  return 5;  // 1m * 5  = Дивиться на тренд 5m
+    case '3m':  return 5;  // 3m * 5  = Дивиться на тренд 15m
+    case '5m':  return 6;  // 5m * 6  = Дивиться на тренд 30m
+    case '15m': return 4;  // 15m * 4 = Дивиться на тренд 1h
+    case '1h':  return 4;  // 1h * 4  = Дивиться на тренд 4h
+    default:    return 1;
   }
 }
 

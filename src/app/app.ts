@@ -84,7 +84,8 @@ export class App implements OnInit, OnDestroy {
     ],
     fractalWindow: 5,
     useTrendFilter: false,
-    trendEmaPeriod: 200
+    trendEmaPeriod: 200,
+    disableTakeProfit: false,
   };
 
   constructor(
@@ -389,7 +390,8 @@ export class App implements OnInit, OnDestroy {
       initialSlPercent: slPct,
       tpZoneMin: sig.tpZoneMin,
       tpZoneMax: sig.tpZoneMax,
-      score: calculateSignalScore(sig)
+      score: calculateSignalScore(sig),
+      isRunner: sig.isRunner
     });
     if (this.lastSignalsHistory.length > 3000) this.lastSignalsHistory.pop();
     this.storage.saveHistory(this.lastSignalsHistory);

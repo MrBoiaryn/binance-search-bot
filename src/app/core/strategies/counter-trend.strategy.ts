@@ -81,6 +81,15 @@ export function detectTradeSignal(
 
 export function isValidSignal(sig: TradeSignal | null, settings: ScannerSettings): boolean {
   if (!sig) return false;
+
+  if (settings.disableTakeProfit) {
+    return (
+      sig.lvlStrength >= settings.minLvlStrength &&
+      sig.swingStrength >= settings.minSwing &&
+      sig.swingStrength <= settings.maxSwing
+    );
+  }
+
   return (
     sig.lvlStrength >= settings.minLvlStrength &&
     sig.profitPercent >= settings.minProfitThreshold &&
@@ -105,89 +114,55 @@ export function createSignal(
 ): TradeSignal | null {
   const symbol = kline.symbol.toUpperCase();
   const tickSize = symbolTickSizes.get(symbol) || 0.0001;
-
   const isInside = pattern.includes(PatternType.INSIDE);
-
-  // Якщо патерн "Inside" (Внутрішній бар), вхід розраховується від попередньої (материнської) свічки
   const entryRefCandle = isInside ? history[history.length - 1] : kline;
 
-  // ==========================================
-  // 1. ТОЧКА ВХОДУ (Entry Price з відступом)
-  // ==========================================
-  // Робимо невеличкий відступ (0.1 ATR) від екстремуму свічки, щоб уникнути хибних проколів.
-  // Для Лонга беремо High + відступ, для Шорта беремо Low - відступ.
+  // 1. ТОЧКА ВХОДУ
   const entryOffset = atr * 0.1;
-  const rawEntryPrice = type === SignalSide.LONG
-    ? entryRefCandle.high + entryOffset
-    : entryRefCandle.low - entryOffset;
-
+  const rawEntryPrice = type === SignalSide.LONG ? entryRefCandle.high + entryOffset : entryRefCandle.low - entryOffset;
   const entryPrice = roundToTick(rawEntryPrice, tickSize);
 
-  // ==========================================
-  // 2. ФІЛЬТР ВОЛАТИЛЬНОСТІ (MA Deviation)
-  // ==========================================
-  // Перевіряємо, чи ціна не знаходиться в глухому флеті.
-  // Рахуємо відхилення типової поточної ціни від середньої за останні 20 свічок.
+  // 2. ВІДХИЛЕННЯ (MA Deviation)
   const typicalPrice = (kline.high + kline.low + kline.close) / 3;
   const avgPrice = history.slice(-20).reduce((acc, k) => acc + k.close, 0) / 20;
   const maDeviation = Math.abs((typicalPrice - avgPrice) / avgPrice) * 100;
 
-  // Якщо відхилення менше за мінімально дозволене в налаштуваннях - ігноруємо сигнал.
   if (maDeviation < settings.minSwing) return null;
 
-  // ==========================================
-  // 3. СТОП-ЛОСС ТА РИЗИК (Stop Loss & Risk)
-  // ==========================================
-  // Рахуємо стоп-лосс на основі патерну та ATR.
+  // 3. СТОП-ЛОСС
   const sl = calculateSL(kline, history, type, tickSize, pattern, atr);
-
-  // Фактичний ризик у доларах/тиках (відстань від входу до стопа).
-  // Використовуємо || tickSize на випадок мікро-рухів, щоб уникнути ділення на нуль в подальшому.
   const actualRisk = Math.abs(entryPrice - sl) || tickSize;
 
-  // ==========================================
-  // 4. ТЕЙК-ПРОФІТ (Зони ліквідності)
-  // ==========================================
-  // Шукаємо справжню зону ліквідності (і цілимось у її найближчий край)
+  // 4. ТЕЙК-ПРОФІТ (Пошук цілі для візуалізації)
   const levelData = findTrueLevel(
     history.slice(-500),
     type === SignalSide.LONG ? LevelType.RESISTANCE : LevelType.SUPPORT,
     entryPrice,
     tickSize,
     atr,
-    settings.fractalWindow || 5 // Передаємо вікно фракталу (дефолт 5)
+    settings.fractalWindow || 5
   );
 
   const { minRR, maxRR } = settings;
-  const requiredReward = actualRisk * minRR;      // Мінімально необхідний прибуток для входу
-  const maxAllowedReward = actualRisk * maxRR;    // Обмежувач жадібності
+  const requiredReward = actualRisk * minRR;
+  const maxAllowedReward = actualRisk * maxRR;
 
   let tpPrice = levelData.price;
   let naturalReward = Math.abs(tpPrice - entryPrice);
 
-  // 🛑 ПРОФЕСІЙНИЙ ФІЛЬТР R/R (Ризик/Прибуток)
-  // Якщо знайдена зона ліквідності знаходиться ближче, ніж наш мінімальний R/R,
-  // або якщо рівень взагалі опинився з іншого боку від входу (наприклад, ціна вже пробила його) -
-  // МИ ВІДХИЛЯЄМО ЦЮ УГОДУ. Ставити тейк штучно у "повітря" - це поганий трейдинг.
-  if (naturalReward < requiredReward || (type === SignalSide.LONG ? tpPrice <= entryPrice : tpPrice >= entryPrice)) {
-    return null; // Угода відхиляється: немає достатнього потенціалу ходу ціни
+  // ФІЛЬТРАЦІЯ R/R (тільки якщо Runners Mode ВИМКНЕНО)
+  if (!settings.disableTakeProfit) {
+    if (naturalReward < requiredReward || (type === SignalSide.LONG ? tpPrice <= entryPrice : tpPrice >= entryPrice)) {
+      return null;
+    }
   }
 
-  // ✂️ ФІЛЬТР ЖАДІБНОСТІ (Max R/R)
-  // Якщо рівень дуже далеко (наприклад, R/R вийшов 10 до 1), ми штучно обрізаємо тейк до maxRR,
-  // щоб не сидіти в угоді тижнями і гарантовано забрати великий прибуток.
+  // Обмеження жадібності (Max R/R)
   if (naturalReward > maxAllowedReward) {
-    tpPrice = type === SignalSide.LONG
-      ? entryPrice + maxAllowedReward
-      : entryPrice - maxAllowedReward;
+    tpPrice = type === SignalSide.LONG ? entryPrice + maxAllowedReward : entryPrice - maxAllowedReward;
   }
 
-  // Округлюємо фінальний тейк-профіт до кроку ціни біржі
-  const tp = roundToTick(tpPrice, tickSize);
-
-  // ==========================================
-  // 5. ФОРМУВАННЯ ОБ'ЄКТА СИГНАЛУ
-  // ==========================================
+  // ФОРМУВАННЯ ОБ'ЄКТА
   return {
     symbol,
     type,
@@ -196,25 +171,25 @@ export function createSignal(
     entryPrice,
     currentPrice: kline.close,
     stopLoss: sl,
-    takeProfit: tp,
+    // В takeProfit завжди пишемо ціну цілі, щоб UI був коректним (без -100%)
+    takeProfit: roundToTick(tpPrice, tickSize),
     lvlStrength: levelData.strength,
     swingStrength: maDeviation,
     volumeMultiplier: vol,
-    liqAmount: 0, // Заповнюється окремо (наприклад, з потоку ліквідацій)
+    liqAmount: 0,
     timestamp: Date.now(),
     quoteAsset: symbolQuotes.get(symbol) || 'USDT',
 
-    // Розраховуємо чистий відсоток прибутку (без плеча)
-    profitPercent: (Math.abs(tp - entryPrice) / entryPrice) * 100,
-
-    // Розраховуємо фінальний R/R для відображення в UI
-    rr: Math.abs(tp - entryPrice) / actualRisk,
+    // Ці поля тепер завжди будуть позитивними і показуватимуть потенціал до рівня
+    profitPercent: (Math.abs(tpPrice - entryPrice) / entryPrice) * 100,
+    rr: Math.abs(tpPrice - entryPrice) / actualRisk,
 
     hasDivergence,
-
-    // Передаємо межі "коридору" (зони ліквідності) для візуалізації в таблиці
     tpZoneMin: levelData.zoneMin,
-    tpZoneMax: levelData.zoneMax
+    tpZoneMax: levelData.zoneMax,
+
+    // Додаємо мітку, щоб менеджер позицій знав, що тейк ставити не треба
+    isRunner: settings.disableTakeProfit
   };
 }
 

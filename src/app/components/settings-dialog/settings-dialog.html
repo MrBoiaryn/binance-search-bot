@@ -95,7 +95,7 @@
           <div class="params-row">
             <div class="input-block full-width">
               <label>Розмір Фракталу (Зони Ліквідності)</label>
-              <input type="number" [(ngModel)]="settings.fractalWindow" step="1" min="2" max="20">
+              <input type="number" [(ngModel)]="localSettings.fractalWindow" step="1" min="2" max="20">
             </div>
           </div>
         </div>
@@ -195,6 +195,20 @@
               </div>
             }
           </div>
+
+          <div class="settings-section">
+            <h3 class="section-title">🚀 Вихід з угоди</h3>
+            <div class="misc-settings">
+              <label class="simple-check">
+                <input type="checkbox" [(ngModel)]="localSettings.disableTakeProfit">
+                <span style="color: #60a5fa; font-weight: bold;">Runners Mode (Тільки Трейлінг)</span>
+              </label>
+              <p style="font-size: 10px; color: #777; margin-left: 25px; margin-top: 4px;">
+                Бот ігноруватиме тейк-профіт та фільтри R/R. Ви бачитимете рівні в таблиці, але вихід буде тільки по Trailing Stop.
+              </p>
+            </div>
+          </div>
+
         </div>
       </div>
 

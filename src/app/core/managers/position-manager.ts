@@ -119,7 +119,7 @@ export function processTick(
           log.status = PositionStatus.SL;
           log.pnl = calculatePnLWithGrid(log, log.sl, feeRate);
           updated = true;
-        } else if (high >= log.tp) {
+        } else if (high >= log.tp && !log.isRunner) {
           log.status = PositionStatus.TP;
           log.pnl = calculatePnLWithGrid(log, log.tp, feeRate);
           updated = true;
@@ -167,7 +167,7 @@ export function processTick(
           log.status = PositionStatus.SL;
           log.pnl = calculatePnLWithGrid(log, log.sl, feeRate);
           updated = true;
-        } else if (low <= log.tp) {
+        } else if (low <= log.tp && !log.isRunner) {
           log.status = PositionStatus.TP;
           log.pnl = calculatePnLWithGrid(log, log.tp, feeRate);
           updated = true;

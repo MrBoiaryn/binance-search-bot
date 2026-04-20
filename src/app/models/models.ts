@@ -48,6 +48,8 @@ export interface TradeSignal {
   tpGrid?: TPGridLevel[];
   tpZoneMin?: number;
   tpZoneMax?: number;
+  score?: number;
+  isRunner?: boolean;
 }
 
 export interface HistoricalLog {
@@ -87,6 +89,7 @@ export interface HistoricalLog {
   tpZoneMin?: number;
   tpZoneMax?: number;
   score: number;
+  isRunner?: boolean;
 }
 
 export interface ScannerSettings {
@@ -121,6 +124,7 @@ export interface ScannerSettings {
 
   useTrendFilter: boolean;
   trendEmaPeriod: number;
+  disableTakeProfit: boolean;
 }
 
 export interface PatternContext {

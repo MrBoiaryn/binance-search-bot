@@ -45,7 +45,7 @@ export enum TimeframeUnit {
 export enum BinanceEventType {
   KLINE = 'kline',
   LIQUIDATION = 'liquidation',
-  FORCE_ORDER = 'forceOrder' // Added for raw Binance event
+  FORCE_ORDER = 'forceOrder'
 }
 
 export enum BinanceFilterType {

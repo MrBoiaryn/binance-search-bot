@@ -6,8 +6,7 @@ export const FEE_FUTURES = 0.0005; // 0.05% taker fee
 export const getMarketFee = (marketType: MarketType): number => {
   if (marketType === MarketType.SPOT) {
     return FEE_SPOT;
-  } else if (marketType === MarketType.FUTURES) {
-    return FEE_FUTURES;
   }
-  return FEE_FUTURES; // Default to futures fee if unknown
+
+  return FEE_FUTURES;
 };

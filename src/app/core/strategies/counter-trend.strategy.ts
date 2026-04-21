@@ -28,7 +28,7 @@ export function detectTradeSignal(
   // LONG
   if (settings.showLong) {
     // Apply HTF filter for LONG: only allow if BULLISH
-    if (!settings.useTrendFilter || htfTrend === 'BULLISH') {
+    if (!settings.useTrendFilter || htfTrend === 'BULLISH' || ctx.hasDivergence) {
       for (const detect of LONG_DETECTORS) {
         const name = detect(ctx);
         if (name) {
@@ -54,7 +54,7 @@ export function detectTradeSignal(
   // SHORT
   if (settings.showShort) {
     // Apply HTF filter for SHORT: only allow if BEARISH
-    if (!settings.useTrendFilter || htfTrend === 'BEARISH') {
+    if (!settings.useTrendFilter || htfTrend === 'BEARISH' || ctx.hasDivergence) {
       for (const detect of SHORT_DETECTORS) {
         const name = detect(ctx);
         if (name) {

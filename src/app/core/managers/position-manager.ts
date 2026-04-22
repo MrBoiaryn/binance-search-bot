@@ -24,8 +24,20 @@ export function processTick(
   for (let log of activeLogs) {
     const high = kline.high;
     const low = kline.low;
+    const open = kline.open;
     const currentPrice = kline.close;
     const feeRate = getMarketFee(log.marketType || marketType);
+
+    // TASK 4.1: Gap Protection
+    if (log.status === PositionStatus.OPENED) {
+       const isGapSl = log.type === SignalSide.LONG ? open <= log.sl : open >= log.sl;
+       if (isGapSl) {
+          log.status = PositionStatus.SL;
+          log.pnl = calculatePnLWithGrid(log, open, feeRate);
+          updated = true;
+          continue; 
+       }
+    }
 
     // --- 1. ТРЕЙЛІНГ-СТОПУ ---
     if (log.status === PositionStatus.OPENED && trailingBars > 0 && symbolHistory.length >= trailingBars) {
@@ -40,7 +52,7 @@ export function processTick(
           updated = true;
         }
       } else if (log.type === SignalSide.SHORT) {
-        const maxHigh = Math.max(...lastBars.map(b => b.high));
+        const maxHigh = maxHighVal(lastBars);
         const newSl = maxHigh + tickSize;
         if (newSl < log.sl) {
           if (!log.initialSl) log.initialSl = log.sl;
@@ -115,7 +127,13 @@ export function processTick(
           });
         }
 
-        if (low <= log.sl) {
+        // TASK 4.2: Conflict Resolution (Same-Candle SL/TP)
+        if (low <= log.sl && high >= log.tp && !log.isRunner) {
+           log.status = PositionStatus.SL;
+           log.pnl = calculatePnLWithGrid(log, log.sl, feeRate);
+           (log as any).uncertainExit = true;
+           updated = true;
+        } else if (low <= log.sl) {
           log.status = PositionStatus.SL;
           log.pnl = calculatePnLWithGrid(log, log.sl, feeRate);
           updated = true;
@@ -163,7 +181,13 @@ export function processTick(
           });
         }
 
-        if (high >= log.sl) {
+        // TASK 4.2: Conflict Resolution (Same-Candle SL/TP)
+        if (high >= log.sl && low <= log.tp && !log.isRunner) {
+           log.status = PositionStatus.SL;
+           log.pnl = calculatePnLWithGrid(log, log.sl, feeRate);
+           (log as any).uncertainExit = true;
+           updated = true;
+        } else if (high >= log.sl) {
           log.status = PositionStatus.SL;
           log.pnl = calculatePnLWithGrid(log, log.sl, feeRate);
           updated = true;
@@ -177,6 +201,10 @@ export function processTick(
   }
 
   return updated;
+}
+
+function maxHighVal(lastBars: any[]): number {
+  return Math.max(...lastBars.map(b => b.high));
 }
 
 function calculatePnLWithGrid(log: HistoricalLog, exitPrice: number, feeRate: number): number {

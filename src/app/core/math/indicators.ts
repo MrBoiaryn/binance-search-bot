@@ -6,12 +6,17 @@ import { LevelType, TimeframeUnit } from '../constants/trade-enums';
  */
 export function calculateAO(history: any[], index: number): number {
   if (index < 33) return 0; // Потрібно мінімум 34 свічки для розрахунку
-  const mid = (i: number) => (history[i].high + history[i].low) / 2;
-
-  // Рахуємо середню ціну за 5 свічок
-  let s5 = 0; for (let i = index - 4; i <= index; i++) s5 += mid(i);
-  // Рахуємо середню ціну за 34 свічки
-  let s34 = 0; for (let i = index - 33; i <= index; i++) s34 += mid(i);
+  
+  let s5 = 0;
+  let s34 = 0;
+  
+  // Оптимізований розрахунок за один прохід
+  for (let i = 0; i < 34; i++) {
+    const kline = history[index - i];
+    const mid = (kline.high + kline.low) / 2;
+    if (i < 5) s5 += mid;
+    s34 += mid;
+  }
 
   return (s5 / 5) - (s34 / 34);
 }
@@ -21,13 +26,17 @@ export function calculateAO(history: any[], index: number): number {
  * Дозволяє бачити дивергенцію ще до того, як хвилина закінчилась.
  */
 export function calculateAOForTick(history: any[], kline: any): number {
-  const mid = (i: number) => (history[i].high + history[i].low) / 2;
   const currentMid = (kline.high + kline.low) / 2;
+  let s5 = currentMid;
+  let s34 = currentMid;
 
-  // Додаємо поточну ціну до останніх 4-х закритих свічок
-  let s5 = currentMid; for (let i = history.length - 1; i > history.length - 5; i--) s5 += mid(i);
-  // Додаємо поточну ціну до останніх 33-х закритих свічок
-  let s34 = currentMid; for (let i = history.length - 1; i > history.length - 34; i--) s34 += mid(i);
+  // Оптимізований розрахунок за один прохід
+  for (let i = 0; i < 33; i++) {
+    const prevKline = history[history.length - 1 - i];
+    const mid = (prevKline.high + prevKline.low) / 2;
+    if (i < 4) s5 += mid;
+    s34 += mid;
+  }
 
   return (s5 / 5) - (s34 / 34);
 }
@@ -37,11 +46,29 @@ export function calculateAOForTick(history: any[], kline: any): number {
  * Використовується для розрахунку відступів стоп-лосса та тейка.
  */
 export function calculateATR(history: any[], period: number = 14): number {
-  if (history.length < period) return 0;
-  const slices = history.slice(-period);
-  // Рахуємо середній розмір свічки (High - Low) за період
-  const ranges = slices.map(k => k.high - k.low);
-  return ranges.reduce((a, b) => a + b, 0) / period;
+  if (history.length < 2) return 0;
+  
+  const actualPeriod = Math.min(period, history.length);
+  let trSum = 0;
+
+  for (let i = history.length - actualPeriod; i < history.length; i++) {
+    const kline = history[i];
+    const prevKline = history[i - 1];
+    
+    let tr: number;
+    if (!prevKline) {
+      tr = kline.high - kline.low;
+    } else {
+      tr = Math.max(
+        kline.high - kline.low,
+        Math.abs(kline.high - prevKline.close),
+        Math.abs(kline.low - prevKline.close)
+      );
+    }
+    trSum += tr;
+  }
+  
+  return trSum / actualPeriod;
 }
 
 /**
@@ -49,8 +76,9 @@ export function calculateATR(history: any[], period: number = 14): number {
  * Щоб біржа не відхилила ордер через зайві знаки після коми.
  */
 export function roundToTick(price: number, tick: number): number {
-  const p = Math.max(0, -Math.floor(Math.log10(tick)));
-  return parseFloat((Math.round(price / tick) * tick).toFixed(p));
+  if (!tick || tick === 0) return price;
+  const factor = 1 / tick;
+  return Math.round(price * factor) / factor;
 }
 
 /**

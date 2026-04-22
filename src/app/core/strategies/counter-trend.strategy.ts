@@ -15,6 +15,9 @@ export function detectTradeSignal(
   symbolTickSizes: Map<string, number>,
   symbolQuotes: Map<string, string>
 ): TradeSignal | null {
+  // TASK 3: Zero-Repainting Execution (The "Close-Only" Rule)
+  if (!kline.isClosed) return null;
+
   if (settings.useDivergence && !ctx.hasDivergence) return null;
 
   // HTF Trend Filter calculation

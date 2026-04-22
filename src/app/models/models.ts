@@ -92,6 +92,11 @@ export interface HistoricalLog {
   isRunner?: boolean;
 }
 
+export interface TimeframeSettings {
+  htfTarget: string;
+  emaPeriod: number;
+}
+
 export interface ScannerSettings {
   marketType: MarketType;
   timeframes: string[];
@@ -125,6 +130,8 @@ export interface ScannerSettings {
   useTrendFilter: boolean;
   trendEmaPeriod: number;
   disableTakeProfit: boolean;
+
+  tfSettings: Record<string, TimeframeSettings>;
 }
 
 export interface PatternContext {

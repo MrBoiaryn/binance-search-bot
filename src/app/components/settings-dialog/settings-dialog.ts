@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ScannerSettings, TPGridLevel } from '../../models/models';
+import { ScannerSettings, TPGridLevel, TimeframeSettings } from '../../models/models';
 import { MarketType } from '../../core/constants/trade-enums';
 
 const FIBO_LEVELS: TPGridLevel[] = [
@@ -36,12 +36,41 @@ export class SettingsDialog implements OnChanges {
     '1d', '3d', '1w'
   ];
 
+  readonly htfOptions = ['5m', '15m', '30m', '1h', '4h', '1d'];
+
   ngOnChanges(changes: SimpleChanges) {
     if (changes['settings'] && this.settings) {
       this.localSettings = JSON.parse(JSON.stringify(this.settings));
       if (!this.localSettings.tpGrid) {
         this.localSettings.tpGrid = [];
       }
+      if (!this.localSettings.tfSettings) {
+        this.localSettings.tfSettings = {};
+      }
+      // Ensure all selected timeframes have settings
+      this.localSettings.timeframes.forEach(tf => this.initTfSettings(tf));
+    }
+  }
+
+  initTfSettings(tf: string) {
+    if (!this.localSettings.tfSettings[tf]) {
+      this.localSettings.tfSettings[tf] = {
+        htfTarget: this.getDefaultHTF(tf),
+        emaPeriod: 100
+      };
+    }
+  }
+
+  getDefaultHTF(tf: string): string {
+    switch (tf) {
+      case '1m': return '5m';
+      case '3m': return '15m';
+      case '5m': return '30m';
+      case '15m': return '1h';
+      case '30m': return '2h';
+      case '1h': return '4h';
+      case '4h': return '1d';
+      default: return '1d';
     }
   }
 
@@ -54,8 +83,9 @@ export class SettingsDialog implements OnChanges {
         return;
       }
       this.localSettings.timeframes.push(tf);
+      this.initTfSettings(tf);
     } else {
-      this.localSettings.timeframes = this.localSettings.timeframes.filter(t => t !== t);
+      this.localSettings.timeframes = this.localSettings.timeframes.filter(t => t !== tf);
     }
   }
 

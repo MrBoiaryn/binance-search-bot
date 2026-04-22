@@ -1,4 +1,4 @@
-import { PatternContext, ScannerSettings, TradeSignal } from '../../models/models';
+import { PatternContext, ScannerSettings, TradeSignal, TimeframeSettings } from '../../models/models';
 import { LONG_DETECTORS, SHORT_DETECTORS } from './pattern-detectors';
 import { findTrueLevel, roundToTick, checkTrendBias } from '../math/indicators';
 import { aggregateCandles, getAggregationRatio } from '../math/trading-math';
@@ -20,9 +20,15 @@ export function detectTradeSignal(
   // HTF Trend Filter calculation
   let htfTrend: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
   if (settings.useTrendFilter) {
-    const ratio = getAggregationRatio(tf);
+    // Dynamic settings for current TF
+    const tfConf: TimeframeSettings = settings.tfSettings?.[tf] || {
+      htfTarget: getDefaultHTF(tf),
+      emaPeriod: 100
+    };
+
+    const ratio = getAggregationRatio(tf, tfConf.htfTarget);
     const htfHistory = aggregateCandles(history, ratio);
-    htfTrend = checkTrendBias(htfHistory, settings.trendEmaPeriod);
+    htfTrend = checkTrendBias(htfHistory, tfConf.emaPeriod);
   }
 
   // LONG
@@ -77,6 +83,19 @@ export function detectTradeSignal(
     }
   }
   return null;
+}
+
+function getDefaultHTF(tf: string): string {
+  switch (tf) {
+    case '1m': return '5m';
+    case '3m': return '15m';
+    case '5m': return '30m';
+    case '15m': return '1h';
+    case '30m': return '2h';
+    case '1h': return '4h';
+    case '4h': return '1d';
+    default: return '1d';
+  }
 }
 
 export function isValidSignal(sig: TradeSignal | null, settings: ScannerSettings): boolean {

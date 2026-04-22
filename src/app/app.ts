@@ -86,6 +86,12 @@ export class App implements OnInit, OnDestroy {
     useTrendFilter: false,
     trendEmaPeriod: 200,
     disableTakeProfit: false,
+    tfSettings: {
+      '1m': { htfTarget: '15m', emaPeriod: 100 },
+      '3m': { htfTarget: '15m', emaPeriod: 100 },
+      '5m': { htfTarget: '1h', emaPeriod: 200 },
+      '15m': { htfTarget: '4h', emaPeriod: 200 }
+    },
   };
 
   constructor(

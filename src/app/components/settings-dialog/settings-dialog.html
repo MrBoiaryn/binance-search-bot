@@ -186,11 +186,35 @@
             </div>
 
             @if (localSettings.useTrendFilter) {
-              <div class="input-block" style="margin-top: 10px;">
-                <label>Період EMA (на ТФ вище)</label>
+              <!-- Dynamic TF Settings -->
+              <div class="tf-settings-list" style="margin-top: 15px;">
+                @for (tf of localSettings.timeframes; track tf) {
+                  <div class="tf-settings-row" style="margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="font-weight: bold; margin-bottom: 8px; color: #60a5fa;">{{ tf }} Settings</div>
+
+                    <div class="params-row" style="display: flex; gap: 10px;">
+                      <div class="input-block" style="flex: 1;">
+                        <label style="font-size: 11px;">HTF Source</label>
+                        <select [(ngModel)]="localSettings.tfSettings[tf].htfTarget">
+                          @for (opt of htfOptions; track opt) {
+                            <option [value]="opt">{{ opt }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="input-block" style="flex: 1;">
+                        <label style="font-size: 11px;">EMA Period</label>
+                        <input type="number" [(ngModel)]="localSettings.tfSettings[tf].emaPeriod">
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+
+              <div class="input-block" style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+                <label>Global Default EMA Period</label>
                 <input type="number" [(ngModel)]="localSettings.trendEmaPeriod" placeholder="Напр. 200">
                 <p style="font-size: 10px; color: #888; margin-top: 4px;">
-                  Бот перевіряє ціну та нахил EMA на старшому таймфреймі.
+                  Використовується як резервне значення, якщо специфічні налаштування для ТФ відсутні.
                 </p>
               </div>
             }

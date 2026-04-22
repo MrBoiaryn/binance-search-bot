@@ -35,15 +35,26 @@ export function roundToTickSize(price: number, tickSize: number): number {
   return parseFloat(price.toFixed(precision));
 }
 
-export function getAggregationRatio(tf: string): number {
-  switch (tf) {
-    case '1m':  return 5;  // 1m * 5  = Дивиться на тренд 5m
-    case '3m':  return 5;  // 3m * 5  = Дивиться на тренд 15m
-    case '5m':  return 6;  // 5m * 6  = Дивиться на тренд 30m
-    case '15m': return 4;  // 15m * 4 = Дивиться на тренд 1h
-    case '1h':  return 4;  // 1h * 4  = Дивиться на тренд 4h
-    default:    return 1;
+/**
+ * Converts timeframe string (e.g., '1m', '5m', '1h', '1d') to total minutes.
+ */
+export function timeframeToMinutes(tf: string): number {
+  const value = parseInt(tf);
+  const unit = tf.slice(-1);
+  switch (unit) {
+    case 'm': return value;
+    case 'h': return value * 60;
+    case 'd': return value * 1440;
+    case 'w': return value * 10080;
+    default: return value;
   }
+}
+
+export function getAggregationRatio(ltf: string, htf: string): number {
+  const ltfMin = timeframeToMinutes(ltf);
+  const htfMin = timeframeToMinutes(htf);
+  if (!ltfMin || !htfMin || htfMin <= ltfMin) return 1;
+  return Math.floor(htfMin / ltfMin);
 }
 
 export function aggregateCandles(ltfHistory: any[], ratio: number): any[] {

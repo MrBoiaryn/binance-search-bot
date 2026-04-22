@@ -76,9 +76,8 @@ export function calculateATR(history: any[], period: number = 14): number {
  * Щоб біржа не відхилила ордер через зайві знаки після коми.
  */
 export function roundToTick(price: number, tick: number): number {
-  if (!tick || tick === 0) return price;
-  const factor = 1 / tick;
-  return Math.round(price * factor) / factor;
+  const p = Math.max(0, -Math.floor(Math.log10(tick)));
+  return parseFloat((Math.round(price / tick) * tick).toFixed(p));
 }
 
 /**

@@ -1,0 +1,245 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onCancel()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Scanner Settings</h3>
+        <button class="close-btn" (click)="onCancel()">×</button>
+      </div>
+
+      <div class="settings-main-grid">
+        <div class="settings-section">
+          <h3 class="section-title">🌐 Ринок & Час</h3>
+          <div class="input-block">
+            <label>Тип торгівлі</label>
+            <select [(ngModel)]="localSettings.marketType">
+              <option [value]="MarketType.FUTURES">Futures (USD-M)</option>
+              <option [value]="MarketType.SPOT">Spot Market</option>
+            </select>
+          </div>
+          <div class="tf-selection-label">Таймфрейми (max 3)</div>
+          <div class="tf-grid">
+            @for (tf of timeframes; track tf) {
+              <label class="tf-chip" [class.active]="isTfSelected(tf)">
+                <input type="checkbox" [checked]="isTfSelected(tf)" (change)="onTfChange(tf, $event)">
+                {{ tf }}
+              </label>
+            }
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3 class="section-title">📊 Технічні параметри</h3>
+
+          <div class="params-row">
+            <div class="input-block">
+              <label>Swing (Бари)</label>
+              <input type="number" [(ngModel)]="localSettings.swingPeriod" title="Глибина пошуку екстремумів">
+            </div>
+            <div class="input-block">
+              <label>Trailing (Бари)</label>
+              <input type="number" [(ngModel)]="localSettings.trailingBars">
+            </div>
+          </div>
+
+          <div class="params-row">
+            <div class="input-block">
+              <label>Об'єм Min (x)</label>
+              <input type="number" [(ngModel)]="localSettings.minVolMult" step="0.1">
+            </div>
+            <div class="input-block">
+              <label>Об'єм Max (x)</label>
+              <input type="number" [(ngModel)]="localSettings.maxVolMult" step="0.1">
+            </div>
+          </div>
+
+          <div class="params-row">
+            <div class="input-block">
+              <label>Swing Min (%)</label>
+              <input type="number" [(ngModel)]="localSettings.minSwing" step="0.1">
+            </div>
+            <div class="input-block">
+              <label>Swing Max (%)</label>
+              <input type="number" [(ngModel)]="localSettings.maxSwing" step="0.1">
+            </div>
+          </div>
+
+          <div class="params-row">
+            <div class="input-block">
+              <label>R/R Min</label>
+              <input type="number" [(ngModel)]="localSettings.minRR" step="0.1">
+            </div>
+            <div class="input-block">
+              <label>R/R Max</label>
+              <input type="number" [(ngModel)]="localSettings.maxRR" step="0.1">
+            </div>
+          </div>
+
+          <div class="params-row">
+            <div class="input-block">
+              <label>L Strength Min</label>
+              <input type="number" [(ngModel)]="localSettings.minLvlStrength" step="0.1">
+            </div>
+            <div class="input-block">
+              <label>Min profit %</label>
+              <input type="number" [(ngModel)]="localSettings.minProfitThreshold" step="0.1">
+            </div>
+          </div>
+
+          <div class="params-row">
+            <div class="input-block full-width">
+              <label>🛡️ Max Stop Loss (%)</label>
+              <input type="number" [(ngModel)]="localSettings.maxStopPercent" step="0.1" min="0.1" max="10.0">
+            </div>
+          </div>
+
+          <div class="params-row">
+            <div class="input-block full-width">
+              <label>Розмір Фракталу (Зони Ліквідності)</label>
+              <input type="number" [(ngModel)]="localSettings.fractalWindow" step="1" min="2" max="20">
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3 class="section-title">⚙️ Стратегія & Візуал</h3>
+          <div class="strategy-toggles">
+            <label class="toggle-card" [class.active]="localSettings.useDivergence">
+              <input type="checkbox" [(ngModel)]="localSettings.useDivergence">
+              <div class="toggle-info">
+                <span class="icon">💎</span>
+                <span class="name">AO Divergence</span>
+              </div>
+            </label>
+
+            <div class="direction-toggles">
+              <label class="dir-btn long" [class.active]="localSettings.showLong">
+                <input type="checkbox" [(ngModel)]="localSettings.showLong"> 📈 LONG
+              </label>
+              <label class="dir-btn short" [class.active]="localSettings.showShort">
+                <input type="checkbox" [(ngModel)]="localSettings.showShort"> 📉 SHORT
+              </label>
+            </div>
+          </div>
+
+          <div class="misc-settings">
+            <label class="simple-check">
+              <input type="checkbox" [(ngModel)]="localSettings.soundEnabled"> 🔊 Звукові сповіщення
+            </label>
+            <label class="simple-check">
+              <input type="checkbox" [(ngModel)]="localSettings.holdStale"> 👻 Показувати "Привидів"
+            </label>
+          </div>
+
+          <div class="tp-grid-container">
+            <div class="tp-grid-header">
+              <label class="grid-label">
+                <input type="checkbox" [(ngModel)]="localSettings.useTPGrid"> 🎯 Take Profit Grid
+              </label>
+
+              @if (localSettings.useTPGrid && localSettings.tpGrid.length < 10) {
+                <button class="add-level-btn" (click)="addTpLevel()">+ Add</button>
+              }
+            </div>
+
+            @if (localSettings.useTPGrid) {
+              <div class="fibo-preset-wrapper">
+                <label class="checkbox-container">
+                  <input type="checkbox" [(ngModel)]="localSettings.useFiboGrid" (change)="applyFiboPreset()">
+                  <span class="checkmark"></span>
+                  <span class="label-text">Use Fibonacci Grid (0.236 - 1.0) 🎯</span>
+                </label>
+              </div>
+
+              <div class="grid-table">
+                <div class="grid-table-head">
+                  <span>Move %</span>
+                  <span>Vol %</span>
+                  <span>BE</span>
+                  <span></span>
+                </div>
+
+                @for (level of localSettings.tpGrid; track $index) {
+                  <div class="grid-row">
+                    <input type="number" [(ngModel)]="level.movePercent" (ngModelChange)="onMovePercentChange()" class="grid-input">
+                    <input type="number" [(ngModel)]="level.volumePercent" class="grid-input">
+                    <input type="checkbox" [(ngModel)]="level.triggerBE" (change)="onBeToggle($index)" class="be-check">
+                    <span class="remove-btn" (click)="removeTpLevel($index)">×</span>
+                  </div>
+                }
+              </div>
+
+              @if (isVolumeInvalid) {
+                <div class="volume-error">
+                  ⚠️ Total volume: {{ totalTpVolume | number:'1.0-1' }}% (must be 100%)
+                </div>
+              }
+            }
+          </div>
+
+          <div class="settings-section">
+            <h3 class="section-title">📈 Трендовий фільтр (HTF)</h3>
+            <div class="misc-settings">
+              <label class="simple-check">
+                <input type="checkbox" [(ngModel)]="localSettings.useTrendFilter">
+                <strong>Активувати EMA Filter</strong>
+              </label>
+            </div>
+
+            @if (localSettings.useTrendFilter) {
+              <!-- Dynamic TF Settings -->
+              <div class="tf-settings-list" style="margin-top: 15px;">
+                @for (tf of localSettings.timeframes; track tf) {
+                  <div class="tf-settings-row" style="margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="font-weight: bold; margin-bottom: 8px; color: #60a5fa;">{{ tf }} Settings</div>
+
+                    <div class="params-row" style="display: flex; gap: 10px;">
+                      <div class="input-block" style="flex: 1;">
+                        <label style="font-size: 11px;">HTF Source</label>
+                        <select [(ngModel)]="localSettings.tfSettings[tf].htfTarget">
+                          @for (opt of htfOptions; track opt) {
+                            <option [value]="opt">{{ opt }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="input-block" style="flex: 1;">
+                        <label style="font-size: 11px;">EMA Period</label>
+                        <input type="number" [(ngModel)]="localSettings.tfSettings[tf].emaPeriod">
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+
+              <div class="input-block" style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+                <label>Global Default EMA Period</label>
+                <input type="number" [(ngModel)]="localSettings.trendEmaPeriod" placeholder="Напр. 200">
+                <p style="font-size: 10px; color: #888; margin-top: 4px;">
+                  Використовується як резервне значення, якщо специфічні налаштування для ТФ відсутні.
+                </p>
+              </div>
+            }
+          </div>
+
+          <div class="settings-section">
+            <h3 class="section-title">🚀 Вихід з угоди</h3>
+            <div class="misc-settings">
+              <label class="simple-check">
+                <input type="checkbox" [(ngModel)]="localSettings.disableTakeProfit">
+                <span style="color: #60a5fa; font-weight: bold;">Runners Mode (Тільки Трейлінг)</span>
+              </label>
+              <p style="font-size: 10px; color: #777; margin-left: 25px; margin-top: 4px;">
+                Бот ігноруватиме тейк-профіт та фільтри R/R. Ви бачитимете рівні в таблиці, але вихід буде тільки по Trailing Stop.
+              </p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="cancel-btn" (click)="onCancel()">Cancel</button>
+        <button class="save-btn" (click)="onSave()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+}

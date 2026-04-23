@@ -1,7 +1,7 @@
-// src/app/models/models.ts
+import { MarketType, PositionStatus, SignalSide, BinanceEventType } from '../core/constants/trade-enums';
 
 export interface KlineData {
-  type: 'kline' | 'liquidation';
+  type: BinanceEventType;
   symbol: string;
   isClosed?: boolean;
   open?: number;
@@ -14,11 +14,21 @@ export interface KlineData {
   amount?: number;
 }
 
+export interface TPGridLevel {
+  level?: number;      // e.g., 0.5, 0.618
+  price?: number;
+  closePct?: number;   // e.g., 20
+  movePercent: number; // For backward compatibility with previous steps
+  volumePercent: number; // For backward compatibility with previous steps
+  isHit?: boolean;
+  triggerBE: boolean;
+}
+
 export interface TradeSignal {
   symbol: string;
-  type: 'LONG' | 'SHORT';
+  type: SignalSide;
   pattern: string;
-  entryPrice: number;    // ✅ Додано: чітка ціна входу (пробій)
+  entryPrice: number;
   currentPrice: number;
   stopLoss: number;
   takeProfit: number;
@@ -28,11 +38,18 @@ export interface TradeSignal {
   timestamp: number;
   rr: number;
   isStale?: boolean;
+  expiryTime?: number;
   quoteAsset: string;
   swingStrength: number;
   timeframe: string;
   lvlStrength: number;
-  hasDivergence: boolean; // ✅ Додано: для відображення 💎
+  hasDivergence: boolean;
+  volumeUsd?: number;
+  tpGrid?: TPGridLevel[];
+  tpZoneMin?: number;
+  tpZoneMax?: number;
+  score?: number;
+  isRunner?: boolean;
 }
 
 export interface HistoricalLog {
@@ -40,37 +57,53 @@ export interface HistoricalLog {
   time: string;
   symbol: string;
   quoteAsset: string;
-  type: string;
+  type: SignalSide | string;
   pattern: string;
-  price: number;         // Це entryPrice
+  price: number;
   sl: number;
   tp: number;
   rr: number;
-  liq: number;
 
-  // --- Супровід позиції ---
-  status?: 'PENDING' | 'OPENED' | 'CANCELLED' | 'SL' | 'TP';
+  status?: PositionStatus;
   isOpened?: boolean;
   pnl?: number;
-  initialSl?: number;    // Для візуалізації трейлінгу
+  initialSl?: number;
+  initialSlPercent?: number;
 
-  // --- Метрики ---
   volMult: number;
   swingStrength: number;
   timeframe: string;
   lvlStrength: number;
-  hasDivergence?: boolean; // ✅ Додано: збереження 💎 в історії
+  hasDivergence?: boolean;
+
+  beTriggered?: boolean;
+  beTriggerPrice?: number;
+  useBE?: boolean; // Legacy fallback
+  beLevelPct?: number; // Legacy fallback
+  useFibGrid?: boolean; // New field for grid activation
+  exitGrid?: TPGridLevel[]; // Fibonacci Exit Grid
+  tpGrid?: TPGridLevel[];
+  useTPGrid?: boolean;
+  marketType?: MarketType;
+  volumeUsd?: number;
+  tpZoneMin?: number;
+  tpZoneMax?: number;
+  score: number;
+  isRunner?: boolean;
+}
+
+export interface TimeframeSettings {
+  htfTarget: string;
+  emaPeriod: number;
 }
 
 export interface ScannerSettings {
-  marketType: 'spot' | 'futures';
+  marketType: MarketType;
   timeframes: string[];
 
-  // --- Параметри періоду ---
   swingPeriod: number;
   trailingBars: number;
 
-  // --- Фільтри діапазонів ---
   minVolMult: number;
   maxVolMult: number;
   minSwing: number;
@@ -78,17 +111,27 @@ export interface ScannerSettings {
   minLvlStrength: number;
   minRR: number;
   maxRR: number;
+  maxStopPercent: number;
 
-  // --- Захист та Профіт ---
-  maxClusterSize: number;
   minProfitThreshold: number;
 
-  // --- UI та Опції ---
   soundEnabled: boolean;
   holdStale: boolean;
   showLong: boolean;
   showShort: boolean;
   useDivergence: boolean;
+
+  useTPGrid: boolean;
+  useFiboGrid: boolean;
+  tpGrid: TPGridLevel[];
+  tpGridSettings?: TPGridLevel[];
+  fractalWindow: number;
+
+  useTrendFilter: boolean;
+  trendEmaPeriod: number;
+  disableTakeProfit: boolean;
+
+  tfSettings: Record<string, TimeframeSettings>;
 }
 
 export interface PatternContext {
@@ -96,10 +139,10 @@ export interface PatternContext {
   lastCandle: any;
   history: any[];
   avgBody: number;
-  atr: number;             // ✅ Додано: Average True Range для стопів
+  atr: number;
   isLocalBottom: boolean;
   isLocalPeak: boolean;
-  isMotherBarBottom?: boolean; // ✅ Додано: Для патерну Inside Bar
-  isMotherBarPeak?: boolean;   // ✅ Додано: Для патерну Inside Bar
-  hasDivergence: boolean;  // ✅ Додано: Стан дивергенції AO
+  isMotherBarBottom?: boolean;
+  isMotherBarPeak?: boolean;
+  hasDivergence: boolean;
 }

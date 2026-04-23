@@ -7,130 +7,72 @@
         <p class="sub-text">Advanced Market Scanner v3.0</p>
       </div>
     </div>
+
+    @if (settings) {
+      <div class="summary-panel">
+        <!-- Group 1: Context & Core -->
+        <div class="summary-group">
+          <span>Market: [ <b>{{settings.marketType | uppercase}}</b> ]</span>
+          <span>TFs:
+            @for (tf of settings.timeframes; track tf) {
+              <span class="mini-chip">{{tf}}</span>
+            }
+          </span>
+        </div>
+
+        <span class="summary-divider">|</span>
+
+        <!-- Group 2: The "Golden" Ranges (Technical Filters) -->
+        <div class="summary-group">
+          <span>Vol: <b>{{settings.minVolMult}} - {{settings.maxVolMult}}x</b></span>
+          <span>Sw: <b>{{settings.minSwing}} - {{settings.maxSwing}}%</b></span>
+          <span>RR: <b>{{settings.minRR}} - {{settings.maxRR}}</b></span>
+          <span class="security-badge">🛡️ Max SL: <b>{{settings.maxStopPercent}}%</b></span>
+        </div>
+
+        <span class="summary-divider">|</span>
+
+        <!-- Group 3: Execution Logic -->
+        <div class="summary-group">
+          <span>S: <b>{{settings.swingPeriod}}b</b> | T: <b>{{settings.trailingBars}}b</b></span>
+          <span>MinP: <b>{{settings.minProfitThreshold}}%</b></span>
+        </div>
+
+        <span class="summary-divider">|</span>
+
+        <!-- Group 4: Active Features (Icons with Tooltips) -->
+        <div class="summary-group feature-icons">
+          <span [class.active]="settings.useDivergence" title="AO Divergence Filter">💎</span>
+          <span [class.active]="settings.soundEnabled" title="Sound Alerts">🔊</span>
+          <span [class.active]="settings.holdStale" title="Hold Stale (Ghost) Mode">👻</span>
+          <span class="long" [class.off]="!settings.showLong">📈 L</span>
+          <span class="short" [class.off]="!settings.showShort">📉 S</span>
+        </div>
+
+        <span class="summary-divider">|</span>
+
+        <!-- Group 5: The "Grid Master" (Interactive TP Grid) -->
+        @if (settings.useTPGrid) {
+          <div class="summary-group tp-grid-summary">
+            <span>🎯 Grid: <b>{{settings.tpGrid.length}} lvl</b></span>
+            <div class="grid-tooltip">
+              @for (lvl of settings.tpGrid; track $index) {
+                <div>{{lvl.movePercent}}% → {{lvl.volumePercent}}% @if(lvl.triggerBE){ [BE] }</div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
     <div class="status-panel">
       <div class="status-item">
         <span class="dot online"></span> Статус: <b>Online</b>
       </div>
-      <button class="apply-btn" (click)="apply()">ЗАСТОСУВАТИ ЗМІНИ</button>
-    </div>
-  </div>
-
-  <div class="settings-main-grid">
-    <div class="settings-section">
-      <h3 class="section-title">🌐 Ринок & Час</h3>
-      <div class="input-block">
-        <label>Тип торгівлі</label>
-        <select [(ngModel)]="localSettings.marketType">
-          <option value="futures">Futures (USD-M)</option>
-          <option value="spot">Spot Market</option>
-        </select>
-      </div>
-      <div class="tf-selection-label">Таймфрейми (max 3)</div>
-      <div class="tf-grid">
-        @for (tf of timeframes; track tf) {
-          <label class="tf-chip" [class.active]="isTfSelected(tf)">
-            <input type="checkbox" [checked]="isTfSelected(tf)" (change)="onTfChange(tf, $event)">
-            {{ tf }}
-          </label>
-        }
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <h3 class="section-title">📊 Технічні параметри</h3>
-
-      <div class="params-row">
-        <div class="input-block">
-          <label>Swing (Бари)</label>
-          <input type="number" [(ngModel)]="localSettings.swingPeriod" title="Глибина пошуку екстремумів">
-        </div>
-        <div class="input-block">
-          <label>Trailing (Бари)</label>
-          <input type="number" [(ngModel)]="localSettings.trailingBars">
-        </div>
-      </div>
-
-      <div class="params-row">
-        <div class="input-block">
-          <label>Об'єм Min (x)</label>
-          <input type="number" [(ngModel)]="localSettings.minVolMult" step="0.1">
-        </div>
-        <div class="input-block">
-          <label>Об'єм Max (x)</label>
-          <input type="number" [(ngModel)]="localSettings.maxVolMult" step="0.1">
-        </div>
-      </div>
-
-      <div class="params-row">
-        <div class="input-block">
-          <label>Swing Min (%)</label>
-          <input type="number" [(ngModel)]="localSettings.minSwing" step="0.1">
-        </div>
-        <div class="input-block">
-          <label>Swing Max (%)</label>
-          <input type="number" [(ngModel)]="localSettings.maxSwing" step="0.1">
-        </div>
-      </div>
-
-      <div class="params-row">
-        <div class="input-block">
-          <label>R/R Min</label>
-          <input type="number" [(ngModel)]="localSettings.minRR" step="0.1" title="Мінімальне співвідношення ризик/прибуток">
-        </div>
-        <div class="input-block">
-          <label>R/R Max</label>
-          <input type="number" [(ngModel)]="localSettings.maxRR" step="0.1" title="Максимальна жадібність (обмеження Тейка)">
-        </div>
-      </div>
-
-      <div class="params-row">
-        <div class="input-block">
-          <label>L Strength Min</label>
-          <input type="number" [(ngModel)]="localSettings.minLvlStrength" step="0.1">
-        </div>
-        <div class="input-block">
-          <label>Кластер (Max)</label>
-          <input type="number" [(ngModel)]="localSettings.maxClusterSize" step="1">
-        </div>
-      </div>
-
-      <div class="params-row">
-        <div class="input-block">
-          <label>Min profit %</label>
-          <input type="number" [(ngModel)]="localSettings.minProfitThreshold" step="0.1">
-        </div>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <h3 class="section-title">⚙️ Стратегія & Візуал</h3>
-      <div class="strategy-toggles">
-        <label class="toggle-card" [class.active]="localSettings.useDivergence">
-          <input type="checkbox" [(ngModel)]="localSettings.useDivergence">
-          <div class="toggle-info">
-            <span class="icon">💎</span>
-            <span class="name">AO Divergence</span>
-          </div>
-        </label>
-
-        <div class="direction-toggles">
-          <label class="dir-btn long" [class.active]="localSettings.showLong">
-            <input type="checkbox" [(ngModel)]="localSettings.showLong"> 📈 LONG
-          </label>
-          <label class="dir-btn short" [class.active]="localSettings.showShort">
-            <input type="checkbox" [(ngModel)]="localSettings.showShort"> 📉 SHORT
-          </label>
-        </div>
-      </div>
-
-      <div class="misc-settings">
-        <label class="simple-check">
-          <input type="checkbox" [(ngModel)]="localSettings.soundEnabled"> 🔊 Звукові сповіщення
-        </label>
-        <label class="simple-check">
-          <input type="checkbox" [(ngModel)]="localSettings.holdStale"> 👻 Показувати "Привидів"
-        </label>
-      </div>
+      <button class="info-btn" (click)="openHelp.emit()"><span>ℹ</span> Help</button>
+      <button class="settings-trigger-btn" (click)="openSettings.emit()">
+        ⚙️ Settings
+      </button>
     </div>
   </div>
 </div>

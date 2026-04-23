@@ -1,6 +1,6 @@
 <div class="signal-card"
-     [style.borderTopColor]="sig.type === 'LONG' ? '#0ecb81' : '#f6465d'"
-     [style.opacity]="sig.isStale ? 0.5 : 1">
+     [style.borderTopColor]="sig.type === SignalSide.LONG ? '#0ecb81' : '#f6465d'"
+     [class.stale-ghost]="sig.isStale">
 
   <div class="card-header">
     <div class="pair-info" style="display: flex; align-items: center; gap: 4px;">
@@ -8,6 +8,8 @@
       <a [href]="getBinanceLink()" target="_blank" class="symbol-link">
         {{ sig.symbol }} ↗
       </a>
+      @if (index === 0) { <span title="Top Signal">👑</span> }
+      @if (index === 1) { <span title="2nd Best">🥈</span> }
       @if (sig.hasDivergence) {
         <span title="AO Divergence Detected" style="font-size: 14px; cursor: help;">💎</span>
       }
@@ -19,7 +21,7 @@
 
   <div class="pattern-row">
     <div class="pattern-badge">{{ sig.pattern }}</div>
-    <div class="side-badge" [style.color]="sig.type === 'LONG' ? '#0ecb81' : '#f6465d'">
+    <div class="side-badge" [style.color]="sig.type === SignalSide.LONG ? '#0ecb81' : '#f6465d'">
       {{ sig.type }}
     </div>
   </div>
@@ -38,8 +40,8 @@
       <div class="stat-value">{{ sig.swingStrength | number:'1.2-2' }}%</div>
     </div>
     <div class="stat-box" [class.high-liq]="sig.liqAmount > 5000">
-      <div class="stat-label">Лікв.</div>
-      <div class="stat-value">${{ sig.liqAmount | number:'1.0-0' }}</div>
+      <div class="stat-label">Об'єм $</div>
+      <div class="stat-value">${{ sig.volumeUsd | number:'1.0-0' }}</div>
     </div>
   </div>
 
@@ -56,6 +58,11 @@
 
   <div class="levels-row">
     <div class="level">SL: <span class="red">{{ sig.stopLoss | number:'1.2-8' }}</span></div>
+    <div class="level">TP ZONE: {{sig.tpZoneMin}}<br>{{sig.tpZoneMax}}</div>
     <div class="level text-right">TP: <span class="green">{{ sig.takeProfit | number:'1.2-8' }}</span></div>
+  </div>
+
+  <div class="footer-debug" style="margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4px;">
+    <span class="text-xs opacity-50" style="font-size: 10px; opacity: 0.5;">Score: {{ score | number:'1.1-1' }}</span>
   </div>
 </div>

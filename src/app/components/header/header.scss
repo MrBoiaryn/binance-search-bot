@@ -1,6 +1,6 @@
 .header-container {
   background: #161a1e;
-  padding: 20px;
+  padding: 10px 20px;
   border-bottom: 1px solid #2b3139;
   color: #eaecef;
 
@@ -8,152 +8,161 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
 
     .brand {
       display: flex;
       align-items: center;
       gap: 12px;
       .logo-icon { font-size: 24px; }
-      h2 { margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px; }
-      .sub-text { margin: 0; font-size: 11px; color: #848e9c; }
-      .badge { background: #f3ba2f; color: #000; font-size: 10px; padding: 2px 6px; border-radius: 4px; }
+      h2 { margin: 0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+      .sub-text { margin: 0; font-size: 9px; color: #848e9c; }
+      .badge { background: #f3ba2f; color: #000; font-size: 8px; padding: 1px 3px; border-radius: 4px; }
+    }
+  }
+
+  .summary-panel {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 11px;
+    color: #848e9c;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+
+    .summary-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    b {
+      color: #f3ba2f;
+    }
+
+    .mini-chip {
+      background: #2b3139;
+      color: #fff;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+
+    .summary-divider {
+      color: #2b3139;
+      font-weight: bold;
+      opacity: 0.5;
+    }
+
+    .security-badge {
+      background: rgba(243, 186, 47, 0.1);
+      border: 1px solid rgba(243, 186, 47, 0.2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      color: #eaecef;
+    }
+
+    .feature-icons {
+      gap: 8px;
+      span {
+        opacity: 0.2;
+        filter: grayscale(1);
+        transition: all 0.2s;
+        &.active {
+          opacity: 1;
+          filter: none;
+          text-shadow: 0 0 8px rgba(243, 186, 47, 0.4);
+        }
+        &.long, &.short { opacity: 1; filter: none; }
+        &.off { opacity: 0.2; filter: grayscale(1); }
+        &[title*="Ghost"].active {
+          text-shadow: 0 0 10px rgba(0, 255, 255, 0.6); // Блакитне сяйво
+        }
+      }
+    }
+
+    .tp-grid-summary {
+      position: relative;
+      cursor: help;
+
+      .grid-tooltip {
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-top: 10px;
+        background: #1e2329;
+        border: 1px solid #474d57;
+        padding: 8px 12px;
+        border-radius: 6px;
+        z-index: 100;
+        visibility: hidden;
+        opacity: 0;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        min-width: 140px;
+        color: #eaecef;
+        transition: all 0.2s;
+
+        div {
+          padding: 2px 0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          &:last-child { border: none; }
+        }
+
+        &::before {
+          content: '';
+          position: absolute;
+          bottom: 100%;
+          left: 50%;
+          transform: translateX(-50%);
+          border: 6px solid transparent;
+          border-bottom-color: #474d57;
+        }
+      }
+
+      &:hover .grid-tooltip {
+        visibility: visible;
+        opacity: 1;
+        top: calc(100% + 5px);
+      }
     }
   }
 
   .status-panel {
     display: flex;
     align-items: center;
-    gap: 20px;
-    .online { color: #0ecb81; }
-    .dot { height: 8px; width: 8px; background: #0ecb81; border-radius: 50%; display: inline-block; box-shadow: 0 0 10px #0ecb81; }
-  }
-
-  .settings-main-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1.2fr;
-    gap: 24px;
-  }
-
-  .settings-section {
-    background: #1e2329;
-    padding: 16px;
-    border-radius: 12px;
-    border: 1px solid #2b3139;
-
-    .section-title {
-      font-size: 13px;
-      color: #848e9c;
-      margin: 0 0 16px 0;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-  }
-
-  // СІТКА ТАЙМФРЕЙМІВ
-  .tf-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 6px;
-    margin-top: 10px;
-
-    .tf-chip {
-      background: #2b3139;
-      border: 1px solid transparent;
-      padding: 6px;
-      text-align: center;
-      border-radius: 6px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.2s;
-      input { display: none; }
-      &:hover { border-color: #474d57; }
-      &.active {
-        background: rgba(243, 186, 47, 0.1);
-        border-color: #f3ba2f;
-        color: #f3ba2f;
-        font-weight: bold;
-      }
-    }
-  }
-
-  .params-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
     gap: 12px;
-    margin-bottom: 12px;
-  }
-
-  .input-block {
-    label { display: block; font-size: 11px; color: #848e9c; margin-bottom: 6px; }
-    select, input {
-      width: 100%;
-      background: #2b3139;
-      border: 1px solid #474d57;
-      border-radius: 6px;
-      padding: 8px;
-      color: #eaecef;
-      outline: none;
-      &:focus { border-color: #f3ba2f; }
+    .status-item {
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
-    .highlight-input { color: #0ecb81; font-weight: bold; }
-  }
-
-  // КНОПКИ НАПРЯМКУ ТА СТРАТЕГІЇ
-  .strategy-toggles {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-bottom: 16px;
-
-    .toggle-card {
-      background: #2b3139;
-      padding: 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      border: 1px solid transparent;
-      input { display: none; }
-      &.active { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
-      .toggle-info { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-    }
-
-    .direction-toggles {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      .dir-btn {
-        padding: 10px; text-align: center; border-radius: 8px; font-size: 12px; cursor: pointer; border: 1px solid #474d57;
-        input { display: none; }
-        &.long.active { background: rgba(14, 203, 129, 0.1); border-color: #0ecb81; color: #0ecb81; }
-        &.short.active { background: rgba(246, 70, 93, 0.1); border-color: #f6465d; color: #f6465d; }
-      }
+    .dot {
+      height: 6px; width: 6px; background: #0ecb81; border-radius: 50%;
+      display: inline-block; box-shadow: 0 0 6px #0ecb81;
     }
   }
 
-  .misc-settings {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    .simple-check { font-size: 12px; color: #848e9c; cursor: pointer; display: flex; align-items: center; gap: 8px; }
-  }
-
-  .apply-btn {
-    background: #f3ba2f;
-    color: #000;
-    border: none;
-    padding: 10px 24px;
-    border-radius: 8px;
-    font-weight: bold;
+  .info-btn, .settings-trigger-btn {
+    background: #2b3139;
+    color: #eaecef;
+    border: 1px solid #474d57;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
-    transition: transform 0.1s;
-    &:active { transform: scale(0.95); }
-    &:hover { background: #f0b90b; box-shadow: 0 0 15px rgba(243, 186, 47, 0.3); }
-  }
-}
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 
-.trailing-input {
-  border-color: #f3ba2f !important; // Золотистий колір Binance для Pro-налаштування
-  &:focus {
-    box-shadow: 0 0 5px rgba(243, 186, 47, 0.4);
+    &:hover {
+      background: #323a45;
+      border-color: #f3ba2f;
+      color: #f3ba2f;
+    }
   }
 }

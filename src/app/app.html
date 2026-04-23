@@ -1,7 +1,8 @@
 <div class="app-wrapper">
   <app-header
     [settings]="settings"
-    (settingsChanged)="onSettingsUpdated($event)">
+    (openSettings)="isSettingsOpen = true"
+    (openHelp)="isHelpOpen = true">
   </app-header>
 
   <div class="signals-header">
@@ -14,9 +15,10 @@
   </div>
 
   <div class="signals-grid">
-    @for (sig of signalsList; track sig.symbol + '_' + sig.timeframe) {
+    @for (sig of signalsList; track sig.symbol + '_' + sig.timeframe; let idx = $index) {
       <app-signal-card
         [sig]="sig"
+        [index]="idx"
         [marketType]="settings.marketType">
       </app-signal-card>
     } @empty {
@@ -27,6 +29,27 @@
     }
   </div>
 
+  @if (ghostSignals.length > 0) {
+    <div class="signals-header mt-8">
+      <h2 class="title-row">
+        <div class="status-badge !border-dashed !opacity-60">
+          <span class="dot !bg-gray-500 !shadow-none"></span>
+          👻 Ghost Signals: <span class="count">{{ ghostSignals.length }}</span>
+        </div>
+      </h2>
+    </div>
+
+    <div class="signals-grid opacity-60">
+      @for (sig of ghostSignals; track sig.symbol + '_' + sig.timeframe; let idx = $index) {
+        <app-signal-card
+          [sig]="sig"
+          [index]="idx"
+          [marketType]="settings.marketType">
+        </app-signal-card>
+      }
+    </div>
+  }
+
   <app-history-table
     [history]="displayHistory"
     [totalPnL]="displayPnL"
@@ -35,4 +58,13 @@
     (filterChanged)="setHistoryFilter($event)"
     (clearHistory)="onClearHistory()">
   </app-history-table>
+
+  <app-settings-dialog
+    [settings]="settings"
+    [isOpen]="isSettingsOpen"
+    (save)="onSettingsUpdated($event); isSettingsOpen = false"
+    (close)="isSettingsOpen = false">
+  </app-settings-dialog>
+
+  <app-help-dialog [isOpen]="isHelpOpen" (close)="isHelpOpen = false"></app-help-dialog>
 </div>
